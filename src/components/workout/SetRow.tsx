@@ -23,6 +23,9 @@ export type SetRowProps = {
   onActiveRowChange: (target: ActiveRowTarget) => void;
 };
 
+const activeFieldRing =
+  "ring-2 ring-inset ring-white/55 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] bg-neutral-800/25";
+
 export function SetRow({
   exerciseId,
   set,
@@ -41,15 +44,8 @@ export function SetRow({
   useEffect(() => {
     if (!focusTarget) return;
     if (focusTarget.exerciseId !== exerciseId || focusTarget.setId !== set.id) return;
-    if (focusTarget.field === "actualReps") {
-      openReps(exerciseId, set.id, set.actualReps);
-    } else if (focusTarget.field === "actualWeight") {
-      openWeight(exerciseId, set.id, set.actualWeight);
-    }
-    // Intentionally omit set.actualReps / set.actualWeight: only open when focus target changes,
-    // not when values update from the keypad (avoids re-opening after commit).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusTarget, exerciseId, set.id, openReps, openWeight]);
+    rowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [focusTarget, exerciseId, set.id]);
 
   const repsActive = isCellActive(exerciseId, set.id, "reps");
   const weightActive = isCellActive(exerciseId, set.id, "weight");
@@ -57,23 +53,12 @@ export function SetRow({
   return (
     <div
       ref={rowRef}
-      className={`grid min-h-[52px] cursor-pointer items-center gap-1 border-t border-neutral-800/60 px-2 text-sm tabular-nums transition-colors duration-75 first:border-t-0 active:bg-neutral-800/40 scroll-mb-28 ${gridTemplate} ${set.completed ? "bg-neutral-100/10" : ""} ${isActive ? "bg-neutral-800/12" : ""}`}
-      onClick={() => {
-        onActiveRowChange({ exerciseId, setId: set.id });
-        openReps(exerciseId, set.id, set.actualReps);
-      }}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          onActiveRowChange({ exerciseId, setId: set.id });
-          openReps(exerciseId, set.id, set.actualReps);
-        }
-      }}
+      className={`grid min-h-[52px] items-center gap-1 border-t border-neutral-800/60 px-2 text-sm tabular-nums transition-colors duration-75 first:border-t-0 scroll-mb-28 ${gridTemplate} ${set.completed ? "bg-neutral-100/10" : ""} ${isActive ? "bg-neutral-800/12" : ""}`}
     >
-      <span className="text-center text-[12px] text-neutral-500">{set.setNumber}</span>
+      <span className="pointer-events-none text-center text-[12px] text-neutral-500">{set.setNumber}</span>
       {set.previousPerformance ? (
         <button
+          type="button"
           className="h-8 w-full truncate rounded-sm px-1 text-left text-[10px] text-neutral-700/80 active:bg-neutral-800/30"
           onClick={(e) => {
             e.stopPropagation();
@@ -90,7 +75,7 @@ export function SetRow({
           {set.previousPerformance.label}
         </button>
       ) : (
-        <span className="truncate text-[10px] text-neutral-700/80">
+        <span className="pointer-events-none truncate text-[10px] text-neutral-700/80">
           {set.previousLabel ?? `${set.targetWeight ?? "-"}x${set.targetReps ?? "-"}`}
         </span>
       )}
@@ -103,15 +88,14 @@ export function SetRow({
           autoComplete="off"
           value={set.actualWeight ?? ""}
           placeholder="lb"
-          className={`h-9 w-full max-w-[88px] cursor-pointer rounded border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none focus:bg-neutral-800/35 ${weightActive ? "ring-1 ring-inset ring-white/70" : ""}`}
+          className={`h-9 w-full max-w-[88px] cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none transition-shadow duration-150 ${weightActive ? activeFieldRing : "hover:bg-neutral-800/20"}`}
           onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
             onActiveRowChange({ exerciseId, setId: set.id });
             openWeight(exerciseId, set.id, set.actualWeight);
           }}
-          onClick={(e) => e.stopPropagation()}
-          aria-label="Weight"
+          aria-label="Weight in pounds"
         />
       </div>
       <div className="flex justify-end">
@@ -123,24 +107,26 @@ export function SetRow({
           autoComplete="off"
           value={set.actualReps ?? ""}
           placeholder="reps"
-          className={`h-9 w-full max-w-[60px] cursor-pointer rounded border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none focus:bg-neutral-800/35 ${repsActive ? "ring-1 ring-inset ring-white/70" : ""}`}
+          className={`h-9 w-full max-w-[60px] cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none transition-shadow duration-150 ${repsActive ? activeFieldRing : "hover:bg-neutral-800/20"}`}
           onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
             onActiveRowChange({ exerciseId, setId: set.id });
             openReps(exerciseId, set.id, set.actualReps);
           }}
-          onClick={(e) => e.stopPropagation()}
           aria-label="Reps"
         />
       </div>
       <button
+        type="button"
         className={`group flex h-8 w-8 items-center justify-center rounded-md border transition-colors duration-75 transition-transform active:scale-[0.97] ${
           set.completed
             ? "border-neutral-200 bg-neutral-100 text-neutral-900"
             : "border-neutral-600/80 bg-neutral-900/40 text-transparent active:border-neutral-500 active:bg-neutral-800/50"
         }`}
-        onPointerDown={(e) => e.preventDefault()}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
         onClick={(e) => {
           e.stopPropagation();
           onActiveRowChange({ exerciseId, setId: set.id });

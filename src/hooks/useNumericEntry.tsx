@@ -24,6 +24,8 @@ type Ctx = {
   open: boolean;
   active: NumericEntryActive;
   buffer: string;
+  /** Same as active.kind when sheet is open; use for UI (weight vs reps). */
+  fieldType: "weight" | "reps" | "rpe" | null;
   kind: NumericFieldKind;
   openReps: (exerciseId: string, setId: string, initial: number | null | undefined) => void;
   openWeight: (exerciseId: string, setId: string, initial: number | null | undefined) => void;
@@ -77,6 +79,7 @@ export function NumericEntryProvider({ children, exercises, onCommit, syncFocus 
   }, [exercises]);
 
   const kind = active?.kind ?? "reps";
+  const fieldType = active?.kind ?? null;
 
   const openSheet = useCallback(
     (
@@ -101,14 +104,14 @@ export function NumericEntryProvider({ children, exercises, onCommit, syncFocus 
 
   const openReps = useCallback(
     (exerciseId: string, setId: string, initial: number | null | undefined) => {
-      openSheet(exerciseId, setId, "reps", initial, false);
+      openSheet(exerciseId, setId, "reps", initial, true);
     },
     [openSheet],
   );
 
   const openWeight = useCallback(
     (exerciseId: string, setId: string, initial: number | null | undefined) => {
-      openSheet(exerciseId, setId, "weight", initial, false);
+      openSheet(exerciseId, setId, "weight", initial, true);
     },
     [openSheet],
   );
@@ -179,13 +182,22 @@ export function NumericEntryProvider({ children, exercises, onCommit, syncFocus 
     const idx = order.findIndex(
       (o) => o.exerciseId === active.exerciseId && o.setId === active.setId,
     );
-    if (idx < 0 || idx >= order.length - 1) {
+    if (idx < 0) {
+      closeOnly();
+      return;
+    }
+    if (active.kind === "weight") {
+      const init = getSetValue(ex, active.exerciseId, active.setId, "reps");
+      openSheet(active.exerciseId, active.setId, "reps", init, true);
+      return;
+    }
+    if (idx >= order.length - 1) {
       closeOnly();
       return;
     }
     const nxt = order[idx + 1];
-    const init = getSetValue(ex, nxt.exerciseId, nxt.setId, active.kind);
-    openSheet(nxt.exerciseId, nxt.setId, active.kind, init, true);
+    const init = getSetValue(ex, nxt.exerciseId, nxt.setId, "weight");
+    openSheet(nxt.exerciseId, nxt.setId, "weight", init, true);
   }, [active, closeOnly, commitBufferToWorkout, openSheet]);
 
   const isCellActive = useCallback(
@@ -202,6 +214,7 @@ export function NumericEntryProvider({ children, exercises, onCommit, syncFocus 
       open,
       active,
       buffer,
+      fieldType,
       kind,
       openReps,
       openWeight,
@@ -212,7 +225,21 @@ export function NumericEntryProvider({ children, exercises, onCommit, syncFocus 
       adjust,
       isCellActive,
     }),
-    [open, active, buffer, kind, openReps, openWeight, dismiss, digit, backspace, next, adjust, isCellActive],
+    [
+      open,
+      active,
+      buffer,
+      fieldType,
+      kind,
+      openReps,
+      openWeight,
+      dismiss,
+      digit,
+      backspace,
+      next,
+      adjust,
+      isCellActive,
+    ],
   );
 
   return <NumericEntryContext.Provider value={value}>{children}</NumericEntryContext.Provider>;

@@ -1,3 +1,5 @@
+import type { AIUpdatePayload } from "@/lib/validation";
+
 type TemplateExerciseRow = {
   id: string;
   exercise_name: string;
@@ -23,9 +25,10 @@ export function buildFallbackProgression(
   templates: TemplateExerciseRow[],
   sets: WorkoutSetRow[],
   difficulty: Difficulty,
-) {
+): AIUpdatePayload {
   const summaryParts: string[] = [];
-  const exerciseBlocks: string[] = [];
+  const exercise_adjustments: AIUpdatePayload["exercise_adjustments"] = [];
+
   const updates = templates.map((template) => {
     const relevantSets = sets.filter(
       (s) => s.template_exercise_id === template.id && s.completed,
@@ -52,45 +55,49 @@ export function buildFallbackProgression(
       progressionStatus = "progress";
       progressionReason = `Add ${inc} lb`;
       summaryParts.push(`${template.exercise_name}: add load`);
-      exerciseBlocks.push(
-        `${template.exercise_name}:\n` +
-          `Increase from ${prevLoad} lb to ${targetWeight} lb next session because every completed set reached the top of your ${template.rep_min}-${template.rep_max} rep range. ` +
-          `Rule: add load only after all working sets hit ${template.rep_max} reps at the current weight. ` +
-          `Next session aim to match ${template.rep_max} reps across all sets at ${targetWeight} lb before chasing another jump.`,
-      );
+      exercise_adjustments.push({
+        exercise_name: template.exercise_name,
+        decision: "Add load",
+        why: `Every completed set reached ${template.rep_max} reps at ${prevLoad} lb, and difficulty was not marked hard. Load increases only after all working sets hit the top of the ${template.rep_min}–${template.rep_max} range.`,
+        next_session_target: `${targetWeight} lb × ${template.rep_max} reps on all ${targetSets} working sets`,
+        focus: `Own ${targetWeight} lb with even reps across sets before chasing another jump.`,
+      });
     } else if (difficulty === "hard" || difficulty === "failed" || missedFloor) {
       if (template.target_sets > 2) {
         targetSets = template.target_sets - 1;
         progressionStatus = "reduce_volume";
         progressionReason = "Reduce 1 set";
         summaryParts.push(`${template.exercise_name}: reduce fatigue`);
-        exerciseBlocks.push(
-          `${template.exercise_name}:\n` +
-            `Hold load at ${targetWeight} lb but reduce to ${targetSets} working sets because reps dipped below ${template.rep_min} on at least one set or effort was marked hard/failed. ` +
-            `Threshold: every set should stay at or above ${template.rep_min} reps before adding volume or load back. ` +
-            `Next session goal: clean reps on all ${targetSets} sets, then return toward ${template.target_sets} sets before loading up.`,
-        );
+        exercise_adjustments.push({
+          exercise_name: template.exercise_name,
+          decision: "Reduce volume",
+          why: `Reps fell below ${template.rep_min} on at least one set or effort was marked hard/failed. Keep load at ${targetWeight} lb until quality is consistent.`,
+          next_session_target: `${targetWeight} lb × ${targetSets} sets, ${template.rep_min}–${template.rep_max} reps each`,
+          focus: `Clean reps on all ${targetSets} sets before adding sets or load back.`,
+        });
       } else {
         const inc = Number(template.increment_lbs || 5);
         targetWeight = Math.max(0, targetWeight - inc);
         progressionStatus = "deload";
         progressionReason = `Deload ${inc} lb`;
         summaryParts.push(`${template.exercise_name}: reduce fatigue`);
-        exerciseBlocks.push(
-          `${template.exercise_name}:\n` +
-            `Deload to ${targetWeight} lb (${inc} lb down) to rebuild rep quality with only ${template.target_sets} working sets available. ` +
-            `Milestone to progress: all sets at ${template.rep_max} reps for two sessions in a row before adding load. ` +
-            `Next session focus on identical rep numbers set-to-set—no more than 1–2 rep drop from set 1 to the last set.`,
-        );
+        exercise_adjustments.push({
+          exercise_name: template.exercise_name,
+          decision: "Deload",
+          why: `Only ${template.target_sets} working sets available and quality broke down. Strip ${inc} lb to rebuild rep quality.`,
+          next_session_target: `${targetWeight} lb × ${template.rep_max} reps on every set for two sessions before adding load`,
+          focus: `Keep set-to-set drop-off to 1–2 reps max.`,
+        });
       }
       cueText = "Control the eccentric";
     } else {
-      exerciseBlocks.push(
-        `${template.exercise_name}:\n` +
-          `Hold at ${targetWeight} lb. Your average completed reps (${avgReps.toFixed(1)}) sits inside ${template.rep_min}-${template.rep_max} but not every set reached ${template.rep_max}. ` +
-          `Progression rule: increase load only after all working sets hit ${template.rep_max} reps. ` +
-          `Next session target: bring the weakest set up first—aim for ${template.rep_max},${template.rep_max},${template.rep_max} across sets before adding weight.`,
-      );
+      exercise_adjustments.push({
+        exercise_name: template.exercise_name,
+        decision: "Hold",
+        why: `Average reps ${avgReps.toFixed(1)} sit in ${template.rep_min}–${template.rep_max}, but not every set reached ${template.rep_max}. No load increase until all sets hit the top of the range.`,
+        next_session_target: `${targetWeight} lb × ${template.rep_max} reps on every working set`,
+        focus: `Bring the weakest set up first—match ${template.rep_max} across sets before adding weight.`,
+      });
     }
 
     return {
@@ -106,36 +113,60 @@ export function buildFallbackProgression(
     };
   });
 
-  const summary_note =
+  const session_summary =
     summaryParts.length > 0
-      ? `Session summary: ${summaryParts.slice(0, 3).join("; ")}. Execution consistency matters more than any single great set.`
-      : "Session summary: maintain current loads, tighten technique, and chase even rep rows across all working sets before loading up.";
+      ? `This session: ${summaryParts.slice(0, 3).join("; ")}. Tight execution across sets matters more than a single standout set.`
+      : "Session looked steady; keep loads, tighten technique, and chase even rep rows across all working sets before loading up.";
 
-  const detailed_feedback =
-    exerciseBlocks.length > 0
-      ? exerciseBlocks.join("\n\n") +
-          "\n\nProgression is driven by completed sets only—log every set honestly so the next update matches reality."
-      : [
-          "No template exercises were returned for this program day, so coaching cannot reference specific lifts.",
-          "When templates exist, each block explains load decisions with explicit rep-range rules (typically: add load only after every working set hits the top of the programmed rep range).",
-          "Next session: keep loads conservative, log every set, and aim for even rep rows across all working sets before pushing intensity.",
-        ].join(" ");
+  if (templates.length === 0) {
+    return {
+      session_summary:
+        "No template exercises were loaded for this program day, so progression rules could not be tied to specific lifts.",
+      exercise_adjustments: [
+        {
+          exercise_name: "Program",
+          decision: "Hold",
+          why: "Without template rows, the app cannot map sets to exercise names. Seed or sync your program and log every working set.",
+          next_session_target: "Complete a full day with templates present",
+          focus: "Log every set honestly so the next update matches reality.",
+        },
+      ],
+      next_session_focus: [
+        "Log every working set when templates are available",
+        "Keep final-set reps within 1–2 of your first set",
+        "Match rest before comparing set-to-set fatigue",
+      ],
+      recovery:
+        difficulty === "hard" || difficulty === "failed"
+          ? "Effort looked high relative to rep quality—prioritize sleep and food before the next heavy day."
+          : "Recovery signals look workable for this volume; keep protein steady.",
+      exercises: [],
+    };
+  }
 
   const next_session_focus =
-    "• Keep your final working set within 1–2 reps of your first set\n" +
-    "• Avoid rushing the eccentric on last reps\n" +
-    "• Match rest periods so fatigue is comparable set-to-set";
+    difficulty === "hard" || difficulty === "failed"
+      ? [
+          "Keep your final working set within 1–2 reps of your first set",
+          "Slow the eccentric on last reps when bar speed drops",
+          "Add one extra minute of rest before the heaviest lift if needed",
+        ]
+      : [
+          "Keep your final working set within 1–2 reps of your first set",
+          "Avoid rushing the eccentric on last reps",
+          "Match rest periods so fatigue is comparable set-to-set",
+        ];
 
-  const recovery_observation =
+  const recovery =
     difficulty === "hard" || difficulty === "failed"
       ? "Fatigue signals look elevated from this session—sleep and food matter before the next heavy day. Watch for bigger rep drop-offs on last sets next time."
       : "Recovery capacity looks adequate for this volume; keep protein and sleep steady so the next session can show clean rep rows.";
 
   return {
-    summary_note,
-    detailed_feedback,
+    session_summary,
+    exercise_adjustments,
     next_session_focus,
-    recovery_observation,
+    recovery,
     exercises: updates,
   };
 }

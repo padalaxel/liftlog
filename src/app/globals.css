@@ -34,3 +34,60 @@ select {
     transform: translateY(0);
   }
 }
+
+/* Post-workout coach debrief: overlay + content reveal */
+@keyframes coachDebriefBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes coachDebriefEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes coachDebriefReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.coach-debrief-root {
+  animation: coachDebriefBackdrop 0.32s ease-out forwards;
+}
+
+.coach-debrief-content {
+  animation: coachDebriefEnter 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.05s backwards;
+}
+
+.coach-debrief-notes {
+  animation: coachDebriefReveal 0.48s cubic-bezier(0.22, 1, 0.36, 1) 0.08s backwards;
+}
+
+.coach-debrief-loading {
+  animation: coachDebriefReveal 0.35s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-debrief-root,
+  .coach-debrief-content,
+  .coach-debrief-notes,
+  .coach-debrief-loading {
+    animation: none !important;
+  }
+}

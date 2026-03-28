@@ -24,11 +24,19 @@ export const finishWorkoutSchema = z.object({
   sets: z.array(setSchema),
 });
 
+export const exerciseAdjustmentSchema = z.object({
+  exercise_name: z.string().min(1).max(120),
+  decision: z.string().min(1).max(200),
+  why: z.string().min(10).max(700),
+  next_session_target: z.string().min(1).max(240),
+  focus: z.string().min(5).max(400),
+});
+
 export const aiUpdateSchema = z.object({
-  summary_note: z.string().min(20).max(450),
-  detailed_feedback: z.string().min(200).max(4500),
-  next_session_focus: z.string().min(20).max(900),
-  recovery_observation: z.string().min(20).max(450),
+  session_summary: z.string().min(20).max(650),
+  exercise_adjustments: z.array(exerciseAdjustmentSchema).min(1).max(20),
+  next_session_focus: z.array(z.string().min(5).max(220)).min(2).max(8),
+  recovery: z.string().min(15).max(520),
   exercises: z.array(
     z.object({
       exercise_name: z.string(),
@@ -54,3 +62,13 @@ export const workoutConversationMessageSchema = z.object({
 });
 
 export type AIUpdatePayload = z.infer<typeof aiUpdateSchema>;
+export type ExerciseAdjustmentItem = z.infer<typeof exerciseAdjustmentSchema>;
+
+export const coachStructuredPayloadSchema = aiUpdateSchema.pick({
+  session_summary: true,
+  exercise_adjustments: true,
+  next_session_focus: true,
+  recovery: true,
+});
+
+export type CoachStructuredPayload = z.infer<typeof coachStructuredPayloadSchema>;

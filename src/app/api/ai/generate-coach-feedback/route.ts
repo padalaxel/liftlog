@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serializeCoachApiResponse } from "@/lib/coach-api";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { generateCoachFeedbackSchema } from "@/lib/validation";
 import { runCoachUpdateForWorkout } from "@/lib/workout-coach";
@@ -26,10 +27,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     message: "Coach notes generated.",
-    summary_note: result.payload.summary_note,
-    detailed_feedback: result.payload.detailed_feedback,
-    next_session_focus: result.payload.next_session_focus,
-    recovery_observation: result.payload.recovery_observation,
     used_fallback: result.usedFallback,
+    ...serializeCoachApiResponse(result.payload),
   });
 }

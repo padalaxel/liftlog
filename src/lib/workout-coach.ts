@@ -1,6 +1,7 @@
 import { generateNextSessionUpdate } from "@/lib/ai/update-next-session";
 import { buildFallbackProgression } from "@/lib/progression-fallback";
 import type { AIUpdatePayload } from "@/lib/validation";
+import { legacyDetailedFromStructured, nextFocusLinesFromArray } from "@/types/coach";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildCoachContext } from "@/lib/ai/buildCoachContext";
 import { buildCoachMessages } from "@/lib/ai/buildCoachMessages";
@@ -98,13 +99,21 @@ export async function runCoachUpdateForWorkout(
     }
   }
 
+  const structuredStore = {
+    session_summary: resultPayload.session_summary,
+    exercise_adjustments: resultPayload.exercise_adjustments,
+    next_session_focus: resultPayload.next_session_focus,
+    recovery: resultPayload.recovery,
+  };
+
   const { error: workoutWriteError } = await supabase
     .from("workouts")
     .update({
-      ai_summary_note: resultPayload.summary_note,
-      ai_detailed_feedback: resultPayload.detailed_feedback,
-      ai_next_session_focus: resultPayload.next_session_focus,
-      ai_recovery_observation: resultPayload.recovery_observation,
+      ai_summary_note: resultPayload.session_summary,
+      ai_detailed_feedback: legacyDetailedFromStructured(structuredStore),
+      ai_next_session_focus: nextFocusLinesFromArray(resultPayload.next_session_focus),
+      ai_recovery_observation: resultPayload.recovery,
+      ai_coach_structured: structuredStore,
     })
     .eq("id", workoutId);
   if (workoutWriteError) {

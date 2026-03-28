@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomNav } from "@/components/workout/BottomNav";
-import { CoachNotesPanel } from "@/components/workout/CoachNotesPanel";
+import { CoachDebriefModal } from "@/components/workout/CoachDebriefModal";
 import { NumericEntrySheet } from "@/components/workout/numeric-entry/NumericEntrySheet";
 import { PostWorkoutModal } from "@/components/workout/PostWorkoutModal";
 import { WorkoutScreen } from "@/components/workout/WorkoutScreen";
 import { NumericEntryProvider } from "@/hooks/useNumericEntry";
 import { MOCK_PROGRAM_DAYS } from "@/lib/mock-data";
+import { coachStructuredPayloadSchema } from "@/lib/validation";
+import type { CoachStructuredPayload } from "@/lib/validation";
 import type {
   ActiveRestTimer,
   ActiveRowTarget,
@@ -48,13 +50,6 @@ type TemplateSetRow = {
   is_bodyweight?: boolean;
   note?: string | null;
   variation?: string | null;
-};
-
-type CoachNotesState = {
-  summary_note: string;
-  detailed_feedback: string;
-  next_session_focus: string;
-  recovery_observation: string;
 };
 
 type ProgramDayData = {
@@ -108,6 +103,18 @@ function buildInitialSetsFromTemplate(ex: ProgramDayData["template_exercises"][n
   }));
 }
 
+function parseCoachStructuredFromApi(data: unknown): CoachStructuredPayload | null {
+  if (!data || typeof data !== "object") return null;
+  const o = data as Record<string, unknown>;
+  const parsed = coachStructuredPayloadSchema.safeParse({
+    session_summary: o.session_summary,
+    exercise_adjustments: o.exercise_adjustments,
+    next_session_focus: o.next_session_focus,
+    recovery: o.recovery,
+  });
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeExercises(input: ExerciseState[]): ExerciseState[] {
   return input.map((exercise) => ({
     ...exercise,
@@ -128,9 +135,13 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [finishMessage, setFinishMessage] = useState<string | null>(null);
-  const [coachNotes, setCoachNotes] = useState<CoachNotesState | null>(null);
   const [nextSessionFocusBanner, setNextSessionFocusBanner] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [debriefOpen, setDebriefOpen] = useState(false);
+  const [debriefPhase, setDebriefPhase] = useState<"loading" | "ready" | "error">("loading");
+  const [debriefPayload, setDebriefPayload] = useState<CoachStructuredPayload | null>(null);
+  const [debriefWorkoutId, setDebriefWorkoutId] = useState<string | null>(null);
+  const [debriefRetryBusy, setDebriefRetryBusy] = useState(false);
   const [activeRest, setActiveRest] = useState<ActiveRestTimer | null>(null);
   const [activeRow, setActiveRow] = useState<ActiveRowTarget>(null);
   const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
@@ -146,7 +157,7 @@ export default function TodayPage() {
     async function loadToday() {
       setLoading(true);
       setError(null);
-      setCoachNotes(null);
+      setDebriefOpen(false);
       const res = await fetch("/api/programs");
       if (!res.ok) {
         const firstDemoDay = MOCK_PROGRAM_DAYS[0];
@@ -316,7 +327,7 @@ export default function TodayPage() {
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("demo") === "1";
     if (workoutId || !day) return;
-    setCoachNotes(null);
+    setDebriefOpen(false);
     if (isDemoMode) {
       setWorkoutId("demo-workout");
       setFinishMessage("Demo workout started. You can log and finish this session.");
@@ -339,6 +350,75 @@ export default function TodayPage() {
       return;
     }
     if (data?.workout?.id) setWorkoutId(data.workout.id);
+  }
+
+  async function runCoachAfterSave(savedId: string) {
+    setDebriefOpen(true);
+    setDebriefPhase("loading");
+    setDebriefPayload(null);
+    setDebriefWorkoutId(savedId);
+    try {
+      const aiRes = await fetch("/api/ai/update-next-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workout_id: savedId }),
+      });
+      const aiData = await aiRes.json().catch(() => ({}));
+      if (!aiRes.ok) {
+        setDebriefPhase("error");
+        const detail =
+          typeof aiData?.message === "string" && aiData.message.length > 0
+            ? aiData.message
+            : `${aiRes.status} ${aiRes.statusText || ""}`.trim();
+        setFinishMessage(`Workout saved. Coach step failed (${detail}).`);
+        return;
+      }
+      const structured = parseCoachStructuredFromApi(aiData);
+      if (!structured) {
+        setDebriefPhase("error");
+        setFinishMessage("Workout saved. Coach response was incomplete.");
+        return;
+      }
+      setDebriefPayload(structured);
+      setDebriefPhase("ready");
+      setFinishMessage(typeof aiData?.message === "string" ? aiData.message : "Updated next session.");
+      const text =
+        typeof aiData?.next_session_focus_text === "string" ? aiData.next_session_focus_text : null;
+      if (text) setNextSessionFocusBanner(text);
+    } catch {
+      setDebriefPhase("error");
+      setFinishMessage("Workout saved. Could not reach coach service.");
+    }
+  }
+
+  async function retryDebriefCoach() {
+    if (!debriefWorkoutId) return;
+    setDebriefRetryBusy(true);
+    setDebriefPhase("loading");
+    try {
+      const aiRes = await fetch("/api/ai/update-next-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workout_id: debriefWorkoutId }),
+      });
+      const aiData = await aiRes.json().catch(() => ({}));
+      if (!aiRes.ok) {
+        setDebriefPhase("error");
+        return;
+      }
+      const structured = parseCoachStructuredFromApi(aiData);
+      if (!structured) {
+        setDebriefPhase("error");
+        return;
+      }
+      setDebriefPayload(structured);
+      setDebriefPhase("ready");
+      const text =
+        typeof aiData?.next_session_focus_text === "string" ? aiData.next_session_focus_text : null;
+      if (text) setNextSessionFocusBanner(text);
+    } finally {
+      setDebriefRetryBusy(false);
+    }
   }
 
   const uiExercises: ExerciseCardData[] = useMemo(
@@ -566,7 +646,6 @@ export default function TodayPage() {
         {loading ? <p className="text-sm text-neutral-400">Loading today session...</p> : null}
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
         {finishMessage ? <p className="text-[11px] text-neutral-500">{finishMessage}</p> : null}
-        {coachNotes ? <CoachNotesPanel variant="compact" {...coachNotes} /> : null}
       </div>
       <PostWorkoutModal
         open={showFinish}
@@ -583,18 +662,30 @@ export default function TodayPage() {
           }
           if (isDemoMode) {
             setFinishMessage("Demo mode complete. Sign in to save and run AI updates.");
-            setCoachNotes({
-              summary_note:
-                "Demo session complete. Sign in to link real workouts, history, and full AI coaching.",
-              detailed_feedback:
-                "Demo mode:\nCoaching blocks will reference your actual sets, rep trends, and prior sessions once you sign in and save a real workout.",
-              next_session_focus:
-                "• Sign in to persist sessions\n• Log every working set for accurate progression\n• Re-run finish to generate structured notes",
-              recovery_observation:
-                "Recovery is not assessed in demo mode—your logged difficulty and notes will matter once you use a real account.",
-            });
             setShowFinish(false);
             setWorkoutId(null);
+            setDebriefOpen(true);
+            setDebriefPhase("ready");
+            setDebriefWorkoutId(null);
+            setDebriefPayload({
+              session_summary:
+                "Demo session complete. Sign in to link real workouts, history, and full AI coaching.",
+              exercise_adjustments: [
+                {
+                  exercise_name: "Your lifts",
+                  decision: "Hold",
+                  why: "Demo mode does not persist sets to your account. Coaching will reference real reps, loads, and history after sign-in.",
+                  next_session_target: "Sign in → save a workout → finish to generate notes",
+                  focus: "Log every working set once your program is linked.",
+                },
+              ],
+              next_session_focus: [
+                "Sign in to persist sessions",
+                "Log every working set for accurate progression",
+                "Finish a workout to auto-open this debrief",
+              ],
+              recovery: "Recovery is not assessed in demo mode.",
+            });
             return;
           }
           const savedWorkoutId = workoutId;
@@ -614,37 +705,12 @@ export default function TodayPage() {
             return;
           }
           if (finishRes.ok) {
-            setFinishMessage("Workout saved. Generating coach update...");
             if (day) window.localStorage.removeItem(`today-draft:${day.id}`);
             setShowFinish(false);
             setWorkoutId(null);
             setFinishing(false);
-            void (async () => {
-              const aiRes = await fetch("/api/ai/update-next-session", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ workout_id: savedWorkoutId }),
-              });
-              const aiData = await aiRes.json().catch(() => ({}));
-              if (!aiRes.ok) {
-                const detail =
-                  typeof aiData?.message === "string" && aiData.message.length > 0
-                    ? aiData.message
-                    : `${aiRes.status} ${aiRes.statusText || ""}`.trim();
-                setFinishMessage(
-                  `Workout saved. Coach step failed (${detail}). If this persists, check Vercel logs for this request.`,
-                );
-                return;
-              }
-              setFinishMessage(aiData?.message ?? "Updated next session.");
-              setCoachNotes({
-                summary_note: String(aiData?.summary_note ?? ""),
-                detailed_feedback: String(aiData?.detailed_feedback ?? ""),
-                next_session_focus: String(aiData?.next_session_focus ?? ""),
-                recovery_observation: String(aiData?.recovery_observation ?? ""),
-              });
-              setNextSessionFocusBanner(aiData?.next_session_focus ?? null);
-            })();
+            setFinishMessage("Workout saved.");
+            void runCoachAfterSave(savedWorkoutId);
             return;
           }
           const errBody = await finishRes.json().catch(() => ({}));
@@ -654,6 +720,14 @@ export default function TodayPage() {
           setFinishing(false);
           setShowFinish(false);
         }}
+      />
+      <CoachDebriefModal
+        open={debriefOpen}
+        phase={debriefPhase}
+        structured={debriefPayload}
+        onClose={() => setDebriefOpen(false)}
+        onRetry={debriefWorkoutId ? retryDebriefCoach : undefined}
+        retryBusy={debriefRetryBusy}
       />
       <BottomNav />
       </NumericEntryProvider>

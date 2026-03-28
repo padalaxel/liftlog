@@ -37,7 +37,33 @@ export async function generateNextSessionUpdate(messages: CoachMessage[]): Promi
             type: "object",
             additionalProperties: false,
             properties: {
-              summary_note: { type: "string" },
+              session_summary: { type: "string" },
+              exercise_adjustments: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    exercise_name: { type: "string" },
+                    decision: { type: "string" },
+                    why: { type: "string" },
+                    next_session_target: { type: "string" },
+                    focus: { type: "string" },
+                  },
+                  required: [
+                    "exercise_name",
+                    "decision",
+                    "why",
+                    "next_session_target",
+                    "focus",
+                  ],
+                },
+              },
+              next_session_focus: {
+                type: "array",
+                items: { type: "string" },
+              },
+              recovery: { type: "string" },
               exercises: {
                 type: "array",
                 items: {
@@ -70,15 +96,12 @@ export async function generateNextSessionUpdate(messages: CoachMessage[]): Promi
                   ],
                 },
               },
-              detailed_feedback: { type: "string" },
-              next_session_focus: { type: "string" },
-              recovery_observation: { type: "string" },
             },
             required: [
-              "summary_note",
-              "detailed_feedback",
+              "session_summary",
+              "exercise_adjustments",
               "next_session_focus",
-              "recovery_observation",
+              "recovery",
               "exercises",
             ],
           },

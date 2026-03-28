@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { CoachNotesPanel } from "@/components/workout/CoachNotesPanel";
+import { parseCoachStructured } from "@/types/coach";
 
 type WorkoutSet = {
   id: string;
@@ -30,6 +31,7 @@ export default function WorkoutDetailPage() {
     ai_detailed_feedback?: string | null;
     ai_next_session_focus?: string | null;
     ai_recovery_observation?: string | null;
+    ai_coach_structured?: unknown;
     program_days?: { name: string } | null;
     workout_sets: WorkoutSet[];
   } | null>(null);
@@ -59,6 +61,15 @@ export default function WorkoutDetailPage() {
     load();
   }, [params.id]);
 
+  const structuredCoach = useMemo(
+    () => parseCoachStructured(workout?.ai_coach_structured ?? null),
+    [workout?.ai_coach_structured],
+  );
+
+  const hasCoachNotes = Boolean(
+    structuredCoach || workout?.ai_detailed_feedback?.trim() || workout?.ai_summary_note?.trim(),
+  );
+
   const setsByTemplate = useMemo(() => {
     const map = new Map<string, WorkoutSet[]>();
     for (const set of workout?.workout_sets ?? []) {
@@ -83,12 +94,13 @@ export default function WorkoutDetailPage() {
         <h2 className="text-base font-semibold text-zinc-100">Coach Notes</h2>
         <CoachNotesPanel
           variant="full"
+          structured={structuredCoach}
           summary_note={workout?.ai_summary_note}
           detailed_feedback={workout?.ai_detailed_feedback}
           next_session_focus={workout?.ai_next_session_focus}
           recovery_observation={workout?.ai_recovery_observation}
         />
-        {!workout?.ai_detailed_feedback ? (
+        {!hasCoachNotes ? (
           <button
             className="h-9 rounded bg-zinc-100 px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
             disabled={generatingNotes}
@@ -108,8 +120,17 @@ export default function WorkoutDetailPage() {
                         ...prev,
                         ai_summary_note: data.summary_note,
                         ai_detailed_feedback: data.detailed_feedback,
-                        ai_next_session_focus: data.next_session_focus,
+                        ai_next_session_focus:
+                          typeof data.next_session_focus_text === "string"
+                            ? data.next_session_focus_text
+                            : null,
                         ai_recovery_observation: data.recovery_observation,
+                        ai_coach_structured: {
+                          session_summary: data.session_summary,
+                          exercise_adjustments: data.exercise_adjustments,
+                          next_session_focus: data.next_session_focus,
+                          recovery: data.recovery,
+                        },
                       }
                     : prev,
                 );
