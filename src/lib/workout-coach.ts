@@ -64,11 +64,16 @@ export async function runCoachUpdateForWorkout(
       workout.difficulty,
     );
   } else {
-    modelName = aiResult.model;
+    modelName =
+      (typeof aiResult.model === "string" && aiResult.model.length > 0
+        ? aiResult.model
+        : null) ?? process.env.OPENAI_MODEL ?? "openai-responses";
     resultPayload = aiResult.data;
   }
 
-  const byName = new Map(resultPayload.exercises.map((ex) => [ex.exercise_name.toLowerCase(), ex]));
+  const byName = new Map(
+    (resultPayload.exercises ?? []).map((ex) => [ex.exercise_name.toLowerCase(), ex]),
+  );
   const { data: templates, error: templatesError } = await supabase
     .from("template_exercises")
     .select("*")

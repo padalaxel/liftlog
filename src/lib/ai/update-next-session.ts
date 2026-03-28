@@ -86,18 +86,45 @@ export async function generateNextSessionUpdate(messages: CoachMessage[]): Promi
       },
     });
 
+    if (response.error) {
+      return {
+        ok: false,
+        error: response.error.message ?? "OpenAI returned an error for this response",
+      };
+    }
+
     const raw = response.output_text;
-    const parsed = aiUpdateSchema.safeParse(JSON.parse(raw));
+    if (!raw?.trim()) {
+      return { ok: false, error: "Empty model output" };
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(raw);
+    } catch {
+      return { ok: false, error: "Model output was not valid JSON" };
+    }
+
+    const parsed = aiUpdateSchema.safeParse(parsedJson);
     if (!parsed.success) {
       return { ok: false, error: "Invalid AI response format" };
     }
 
+    const modelLabel =
+      (typeof response.model === "string" && response.model.length > 0
+        ? response.model
+        : null) ?? process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+
     return {
       ok: true,
       data: parsed.data,
-      model: response.model,
+      model: modelLabel,
     };
-  } catch {
-    return { ok: false, error: "Could not generate update" };
+  } catch (err) {
+    console.error("[generateNextSessionUpdate]", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not generate update",
+    };
   }
 }
