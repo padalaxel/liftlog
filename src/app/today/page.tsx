@@ -597,7 +597,13 @@ export default function TodayPage() {
               });
               const aiData = await aiRes.json().catch(() => ({}));
               if (!aiRes.ok) {
-                setFinishMessage("Workout saved. Coach update unavailable right now.");
+                const detail =
+                  typeof aiData?.message === "string" && aiData.message.length > 0
+                    ? aiData.message
+                    : `${aiRes.status} ${aiRes.statusText || ""}`.trim();
+                setFinishMessage(
+                  `Workout saved. Coach step failed (${detail}). If this persists, check Vercel logs for this request.`,
+                );
                 return;
               }
               setFinishMessage(aiData?.message ?? "Updated next session.");
