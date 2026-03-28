@@ -6,6 +6,8 @@ export type WorkoutHeaderProps = {
   workoutName: string;
   elapsedSeconds: number;
   isFinishing?: boolean;
+  /** When false, Finish is disabled (e.g. user has not started a saved session yet). */
+  canFinish?: boolean;
   onBack?: () => void;
   onFinishWorkout: () => void;
   onOpenWorkoutOptions?: () => void;
@@ -15,6 +17,7 @@ export function WorkoutHeader({
   workoutName,
   elapsedSeconds,
   isFinishing = false,
+  canFinish = true,
   onBack,
   onFinishWorkout,
   onOpenWorkoutOptions,
@@ -51,7 +54,7 @@ export function WorkoutHeader({
           ) : null}
           <button
             className="h-8 rounded-full border border-neutral-700 bg-neutral-900 px-3 text-xs font-medium text-neutral-200 disabled:opacity-50"
-            disabled={isFinishing}
+            disabled={isFinishing || !canFinish}
             onClick={onFinishWorkout}
           >
             {isFinishing ? "..." : "Finish"}

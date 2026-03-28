@@ -315,9 +315,18 @@ export default function TodayPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ program_day_id: day.id }),
     });
-    if (!response.ok) return;
-    const data = await response.json();
-    setWorkoutId(data.workout.id);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg =
+        typeof data?.error === "string"
+          ? data.error
+          : response.status === 401
+            ? "Sign in to start a workout."
+            : "Could not start workout. Try again.";
+      setFinishMessage(msg);
+      return;
+    }
+    if (data?.workout?.id) setWorkoutId(data.workout.id);
   }
 
   const uiExercises: ExerciseCardData[] = useMemo(
@@ -508,6 +517,7 @@ export default function TodayPage() {
         nextSessionFocus={nextSessionFocusBanner}
         activeRestTimer={activeRest}
         isFinishing={finishing}
+        canFinish={Boolean(workoutId)}
         onFinishWorkout={() => setShowFinish(true)}
         onUpdateSet={applyUpdateSet}
         onCompleteSet={applyCompleteSet}
@@ -543,7 +553,11 @@ export default function TodayPage() {
           const isDemoMode =
             typeof window !== "undefined" &&
             new URLSearchParams(window.location.search).get("demo") === "1";
-          if (!workoutId) return;
+          if (!workoutId) {
+            setShowFinish(false);
+            setFinishMessage('Tap "Start Workout" first so your session can be saved.');
+            return;
+          }
           if (isDemoMode) {
             setFinishMessage("Demo mode complete. Sign in to save and run AI updates.");
             setCoachSummary(
@@ -553,13 +567,22 @@ export default function TodayPage() {
             setWorkoutId(null);
             return;
           }
+          const savedWorkoutId = workoutId;
           setFinishing(true);
           setFinishMessage("Saving workout...");
-          const finishRes = await fetch("/api/workouts/finish", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ workout_id: workoutId, sets: allSets, ...review }),
-          });
+          let finishRes: Response;
+          try {
+            finishRes = await fetch("/api/workouts/finish", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ workout_id: savedWorkoutId, sets: allSets, ...review }),
+            });
+          } catch {
+            setFinishing(false);
+            setShowFinish(false);
+            setFinishMessage("Network error while saving. Check your connection and try again.");
+            return;
+          }
           if (finishRes.ok) {
             setFinishMessage("Workout saved. Generating coach update...");
             if (day) window.localStorage.removeItem(`today-draft:${day.id}`);
@@ -570,7 +593,7 @@ export default function TodayPage() {
               const aiRes = await fetch("/api/ai/update-next-session", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ workout_id: workoutId }),
+                body: JSON.stringify({ workout_id: savedWorkoutId }),
               });
               const aiData = await aiRes.json().catch(() => ({}));
               if (!aiRes.ok) {
@@ -582,9 +605,11 @@ export default function TodayPage() {
               setNextSessionFocusBanner(aiData?.next_session_focus ?? null);
             })();
             return;
-          } else {
-            setFinishMessage("Could not finish workout. Please retry.");
           }
+          const errBody = await finishRes.json().catch(() => ({}));
+          const detail =
+            typeof errBody?.error === "string" ? errBody.error : finishRes.statusText || "Unknown error";
+          setFinishMessage(`Could not save workout: ${detail}`);
           setFinishing(false);
           setShowFinish(false);
         }}

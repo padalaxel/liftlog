@@ -24,6 +24,8 @@ export type WorkoutScreenProps = {
   nextSessionFocus?: string | null;
   activeRestTimer?: ActiveRestTimer | null;
   isFinishing?: boolean;
+  /** When false, Finish is disabled until a workout session exists (see Today page). */
+  canFinish?: boolean;
   onBack?: () => void;
   onFinishWorkout: () => void;
   onOpenWorkoutOptions?: () => void;
@@ -48,6 +50,7 @@ export function WorkoutScreen({
   nextSessionFocus,
   activeRestTimer = null,
   isFinishing = false,
+  canFinish = true,
   onBack,
   onFinishWorkout,
   onOpenWorkoutOptions,
@@ -71,6 +74,7 @@ export function WorkoutScreen({
           workoutName={workoutName}
           elapsedSeconds={elapsedSeconds}
           isFinishing={isFinishing}
+          canFinish={canFinish}
           onBack={onBack}
           onFinishWorkout={onFinishWorkout}
           onOpenWorkoutOptions={onOpenWorkoutOptions}
