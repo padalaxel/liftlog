@@ -36,7 +36,6 @@ export function SetTable({
   focusTarget,
   onActiveRowChange,
 }: SetTableProps) {
-  const lastSetId = sets[sets.length - 1]?.id;
   return (
     <div className="mt-1 overflow-hidden rounded-md border border-neutral-800/80 bg-neutral-950/20">
       <SetTableHeader />
@@ -47,7 +46,6 @@ export function SetTable({
             exerciseId={exerciseId}
             set={set}
             gridTemplate={setTableLayout.gridWithPrevious}
-            autoFocus={set.id === lastSetId && !set.completed}
             isActive={activeRow?.exerciseId === exerciseId && activeRow?.setId === set.id}
             focusTarget={focusTarget}
             onUpdateSet={onUpdateSet}

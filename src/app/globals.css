@@ -25,3 +25,12 @@ select {
   font-size: 16px;
   line-height: 1.4;
 }
+
+@keyframes liftlogSheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

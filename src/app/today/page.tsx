@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomNav } from "@/components/workout/BottomNav";
 import { CoachNotesPanel } from "@/components/workout/CoachNotesPanel";
+import { NumericEntrySheet } from "@/components/workout/numeric-entry/NumericEntrySheet";
 import { PostWorkoutModal } from "@/components/workout/PostWorkoutModal";
 import { WorkoutScreen } from "@/components/workout/WorkoutScreen";
+import { NumericEntryProvider } from "@/hooks/useNumericEntry";
 import { MOCK_PROGRAM_DAYS } from "@/lib/mock-data";
 import type {
   ActiveRestTimer,
@@ -518,6 +520,13 @@ export default function TodayPage() {
 
   return (
     <main>
+      <NumericEntryProvider
+        exercises={uiExercises}
+        onCommit={(exerciseId, setId, field, value) => {
+          applyUpdateSet({ exerciseId, setId, field, value });
+        }}
+        syncFocus={requestSetFocus}
+      >
       <WorkoutScreen
         workoutId={workoutId ?? "pending"}
         workoutName={day?.name ?? "Today"}
@@ -552,6 +561,7 @@ export default function TodayPage() {
         onSkipRestTimer={() => setActiveRest(null)}
         onDismissRestTimer={() => setActiveRest(null)}
       />
+      <NumericEntrySheet />
       <div className="mx-auto w-full max-w-[430px] space-y-1.5 px-3 pb-28">
         {loading ? <p className="text-sm text-neutral-400">Loading today session...</p> : null}
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
@@ -646,6 +656,7 @@ export default function TodayPage() {
         }}
       />
       <BottomNav />
+      </NumericEntryProvider>
     </main>
   );
 }

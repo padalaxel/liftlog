@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useNumericEntry } from "@/hooks/useNumericEntry";
 import type {
   ActiveRowTarget,
   CompleteSetInput,
@@ -16,7 +17,6 @@ export type SetRowProps = {
   gridTemplate: string;
   isActive: boolean;
   focusTarget: FocusTarget;
-  autoFocus?: boolean;
   onUpdateSet: (input: UpdateSetInput) => void;
   onCompleteSet: (input: CompleteSetInput) => void;
   onUsePrevious: (input: UsePreviousInput) => void;
@@ -29,51 +29,46 @@ export function SetRow({
   gridTemplate,
   isActive,
   focusTarget,
-  autoFocus = false,
   onUpdateSet,
   onCompleteSet,
   onUsePrevious,
   onActiveRowChange,
 }: SetRowProps) {
-  const repsInputRef = useRef<HTMLInputElement>(null);
-  const weightInputRef = useRef<HTMLInputElement>(null);
+  void onUpdateSet;
   const rowRef = useRef<HTMLDivElement>(null);
+  const { openReps, openWeight, isCellActive } = useNumericEntry();
 
   useEffect(() => {
     if (!focusTarget) return;
     if (focusTarget.exerciseId !== exerciseId || focusTarget.setId !== set.id) return;
-    const targetRef = focusTarget.field === "actualWeight" ? weightInputRef : repsInputRef;
-    targetRef.current?.focus();
-    targetRef.current?.select();
-    const rowRect = rowRef.current?.getBoundingClientRect();
-    if (!rowRect) return;
-    const topCutoff = 56;
-    const bottomCutoff = window.innerHeight - 200;
-    if (rowRect.top < topCutoff || rowRect.bottom > bottomCutoff) {
-      rowRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+    if (focusTarget.field === "actualReps") {
+      openReps(exerciseId, set.id, set.actualReps);
+    } else if (focusTarget.field === "actualWeight") {
+      openWeight(exerciseId, set.id, set.actualWeight);
     }
-  }, [exerciseId, focusTarget, set.id]);
+    // Intentionally omit set.actualReps / set.actualWeight: only open when focus target changes,
+    // not when values update from the keypad (avoids re-opening after commit).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTarget, exerciseId, set.id, openReps, openWeight]);
 
-  function parseNumericValue(value: string): number | null {
-    const digitsOnly = value.replace(/[^\d]/g, "");
-    if (!digitsOnly) return null;
-    return Number(digitsOnly);
-  }
+  const repsActive = isCellActive(exerciseId, set.id, "reps");
+  const weightActive = isCellActive(exerciseId, set.id, "weight");
 
   return (
     <div
       ref={rowRef}
       className={`grid min-h-[52px] cursor-pointer items-center gap-1 border-t border-neutral-800/60 px-2 text-sm tabular-nums transition-colors duration-75 first:border-t-0 active:bg-neutral-800/40 scroll-mb-28 ${gridTemplate} ${set.completed ? "bg-neutral-100/10" : ""} ${isActive ? "bg-neutral-800/12" : ""}`}
       onClick={() => {
-        if (document.activeElement === repsInputRef.current) return;
         onActiveRowChange({ exerciseId, setId: set.id });
-        repsInputRef.current?.focus();
-        repsInputRef.current?.select();
+        openReps(exerciseId, set.id, set.actualReps);
       }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === "Enter") repsInputRef.current?.focus();
+        if (e.key === "Enter") {
+          onActiveRowChange({ exerciseId, setId: set.id });
+          openReps(exerciseId, set.id, set.actualReps);
+        }
       }}
     >
       <span className="text-center text-[12px] text-neutral-500">{set.setNumber}</span>
@@ -102,42 +97,41 @@ export function SetRow({
       <div className="flex justify-end">
         <input
           type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          readOnly
+          tabIndex={-1}
+          inputMode="none"
+          autoComplete="off"
           value={set.actualWeight ?? ""}
           placeholder="lb"
-          className="h-9 w-full max-w-[88px] rounded border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none focus:bg-neutral-800/35"
-          ref={weightInputRef}
+          className={`h-9 w-full max-w-[88px] cursor-pointer rounded border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none focus:bg-neutral-800/35 ${weightActive ? "ring-1 ring-inset ring-white/70" : ""}`}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onActiveRowChange({ exerciseId, setId: set.id });
+            openWeight(exerciseId, set.id, set.actualWeight);
+          }}
           onClick={(e) => e.stopPropagation()}
-          onFocus={() => onActiveRowChange({ exerciseId, setId: set.id })}
-          onChange={(e) =>
-            onUpdateSet({
-              exerciseId,
-              setId: set.id,
-              field: "actualWeight",
-              value: parseNumericValue(e.target.value),
-            })}
+          aria-label="Weight"
         />
       </div>
       <div className="flex justify-end">
         <input
           type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          readOnly
+          tabIndex={-1}
+          inputMode="none"
+          autoComplete="off"
           value={set.actualReps ?? ""}
           placeholder="reps"
-          className="h-9 w-full max-w-[60px] rounded border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none focus:bg-neutral-800/35"
-          ref={repsInputRef}
-          autoFocus={autoFocus}
+          className={`h-9 w-full max-w-[60px] cursor-pointer rounded border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none focus:bg-neutral-800/35 ${repsActive ? "ring-1 ring-inset ring-white/70" : ""}`}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onActiveRowChange({ exerciseId, setId: set.id });
+            openReps(exerciseId, set.id, set.actualReps);
+          }}
           onClick={(e) => e.stopPropagation()}
-          onFocus={() => onActiveRowChange({ exerciseId, setId: set.id })}
-          onChange={(e) =>
-            onUpdateSet({
-              exerciseId,
-              setId: set.id,
-              field: "actualReps",
-              value: parseNumericValue(e.target.value),
-            })}
+          aria-label="Reps"
         />
       </div>
       <button
