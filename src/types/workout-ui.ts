@@ -53,6 +53,8 @@ export type CompleteSetInput = {
   exerciseId: string;
   setId: string;
   completed: boolean;
+  /** When true, skip auto focus/scroll to next row (e.g. keypad will open next field). */
+  skipAutoFocus?: boolean;
 };
 
 export type UsePreviousInput = {

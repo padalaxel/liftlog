@@ -6,6 +6,7 @@ import { CoachDebriefModal } from "@/components/workout/CoachDebriefModal";
 import { NumericEntrySheet } from "@/components/workout/numeric-entry/NumericEntrySheet";
 import { PostWorkoutModal } from "@/components/workout/PostWorkoutModal";
 import { WorkoutScreen } from "@/components/workout/WorkoutScreen";
+import type { NumericEntryBridgeApi } from "@/hooks/useNumericEntry";
 import { NumericEntryProvider } from "@/hooks/useNumericEntry";
 import { MOCK_PROGRAM_DAYS } from "@/lib/mock-data";
 import { coachStructuredPayloadSchema } from "@/lib/validation";
@@ -147,6 +148,7 @@ export default function TodayPage() {
   const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
   const restTimerIdRef = useRef(0);
   const focusRequestRef = useRef(0);
+  const numericBridgeRef = useRef<NumericEntryBridgeApi | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setElapsed((v) => v + 1), 1000);
@@ -491,7 +493,12 @@ export default function TodayPage() {
     setFocusTarget({ exerciseId, setId, field, requestKey: focusRequestRef.current });
   }
 
-  function applyCompleteSet({ exerciseId, setId, completed }: CompleteSetInput) {
+  function applyCompleteSet({
+    exerciseId,
+    setId,
+    completed,
+    skipAutoFocus,
+  }: CompleteSetInput & { skipAutoFocus?: boolean }) {
     if (!setId) return;
     const exercise = exercises.find((e) => e.id === exerciseId);
     if (!exercise) return;
@@ -530,9 +537,39 @@ export default function TodayPage() {
       if (restSec > 0) {
         void startRestTimer(exercise.name, restSec);
       }
-      if (nextIncomplete) {
+      if (nextIncomplete && !skipAutoFocus) {
         requestSetFocus(exerciseId, nextIncomplete.id, "actualReps");
       }
+    }
+  }
+
+  function openKeypadForNextSet(exerciseId: string, set: ExerciseState["sets"][number]) {
+    const w = set.actual_weight;
+    if (w != null) {
+      numericBridgeRef.current?.openReps(exerciseId, set.id, set.actual_reps ?? null);
+    } else {
+      numericBridgeRef.current?.openWeight(exerciseId, set.id, set.actual_weight ?? null);
+    }
+  }
+
+  function handleRepsNextFromKeypad({ exerciseId, setId }: { exerciseId: string; setId: string }) {
+    const exercise = exercises.find((e) => e.id === exerciseId);
+    if (!exercise) return;
+    const setIndex = exercise.sets.findIndex((s) => s.id === setId);
+    if (setIndex < 0) return;
+    const row = exercise.sets[setIndex];
+    const nextIncomplete = exercise.sets.slice(setIndex + 1).find((s) => !s.completed);
+
+    if (row.completed) {
+      if (nextIncomplete) {
+        requestAnimationFrame(() => openKeypadForNextSet(exerciseId, nextIncomplete));
+      }
+      return;
+    }
+
+    applyCompleteSet({ exerciseId, setId, completed: true, skipAutoFocus: true });
+    if (nextIncomplete) {
+      requestAnimationFrame(() => openKeypadForNextSet(exerciseId, nextIncomplete));
     }
   }
 
@@ -604,6 +641,18 @@ export default function TodayPage() {
         exercises={uiExercises}
         onCommit={(exerciseId, setId, field, value) => {
           applyUpdateSet({ exerciseId, setId, field, value });
+        }}
+        onLiveChange={(input) => {
+          applyUpdateSet({
+            exerciseId: input.exerciseId,
+            setId: input.setId,
+            field: input.field,
+            value: input.value,
+          });
+        }}
+        onRepsNext={handleRepsNextFromKeypad}
+        registerNumericApi={(api) => {
+          numericBridgeRef.current = api;
         }}
         syncFocus={requestSetFocus}
       >
