@@ -65,6 +65,13 @@ function getRepMaxForExercise(exercises: ExerciseCardData[], exerciseId: string)
   return ex?.repRange?.max ?? null;
 }
 
+/** Strong-like ± steps: weight in 5 lb, reps in 1. */
+function getAdjustStep(kind: NumericFieldKind): number {
+  if (kind === "weight") return 5;
+  if (kind === "reps") return 1;
+  return 1;
+}
+
 export type NumericEntryBridgeApi = {
   openWeight: (exerciseId: string, setId: string, initial?: number | null) => void;
   openReps: (exerciseId: string, setId: string, initial?: number | null) => void;
@@ -278,15 +285,18 @@ export function NumericEntryProvider({
     });
   }, [emitLiveChange]);
 
+  /** `sign` is +1 or -1 from keypad; step is 5 lb for weight, 1 for reps. */
   const adjust = useCallback(
-    (delta: number) => {
+    (sign: number) => {
       const a = activeRef.current;
       if (!a || a.kind === "rpe") return;
       replaceNextDigitRef.current = false;
+      const step = getAdjustStep(a.kind);
+      const effectiveDelta = (sign >= 0 ? 1 : -1) * step;
       setBuffer((prev) => {
         const current = parseInt(prev, 10);
         const base = Number.isFinite(current) ? current : 0;
-        const nextVal = Math.max(0, base + delta);
+        const nextVal = Math.max(0, base + effectiveDelta);
         const s = String(nextVal);
         bufferRef.current = s;
         emitLiveChange(a, s);

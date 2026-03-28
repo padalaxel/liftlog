@@ -543,13 +543,10 @@ export default function TodayPage() {
     }
   }
 
+  /** Strong-like: always start the next set on weight (user can adjust before reps). */
   function openKeypadForNextSet(exerciseId: string, set: ExerciseState["sets"][number]) {
-    const w = set.actual_weight;
-    if (w != null) {
-      numericBridgeRef.current?.openReps(exerciseId, set.id, set.actual_reps ?? null);
-    } else {
-      numericBridgeRef.current?.openWeight(exerciseId, set.id, set.actual_weight ?? null);
-    }
+    const init = set.actual_weight ?? set.target_weight ?? null;
+    numericBridgeRef.current?.openWeight(exerciseId, set.id, init);
   }
 
   function handleRepsNextFromKeypad({ exerciseId, setId }: { exerciseId: string; setId: string }) {
