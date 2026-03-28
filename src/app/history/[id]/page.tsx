@@ -136,7 +136,17 @@ export default function WorkoutDetailPage() {
                 );
                 setNotesMessage("Coach notes generated.");
               } else {
-                setNotesMessage("Could not generate notes. Try again.");
+                const errBody = (await res.json().catch(() => ({}))) as {
+                  error?: string;
+                  message?: string;
+                };
+                const detail =
+                  typeof errBody.error === "string"
+                    ? errBody.error
+                    : typeof errBody.message === "string"
+                      ? errBody.message
+                      : `${res.status} ${res.statusText}`;
+                setNotesMessage(`Could not generate notes: ${detail}`);
               }
               setGeneratingNotes(false);
             }}
