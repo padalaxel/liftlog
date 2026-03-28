@@ -1,0 +1,9 @@
+{
+  "name": "LiftLog Coach",
+  "short_name": "LiftLog",
+  "description": "Mobile-first workout logging with AI progression",
+  "start_url": "/today",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b"
+}
