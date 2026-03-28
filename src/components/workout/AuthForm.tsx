@@ -48,8 +48,8 @@ export function AuthForm() {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
       <h1 className="mb-3 text-xl font-semibold">Sign in</h1>
-      <input className="mb-2 h-11 w-full rounded bg-zinc-950 px-3" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input className="mb-3 h-11 w-full rounded bg-zinc-950 px-3" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <input className="mb-2 h-11 w-full rounded bg-zinc-950 px-3 text-base" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input className="mb-3 h-11 w-full rounded bg-zinc-950 px-3 text-base" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       {error ? <p className="mb-2 text-xs text-red-300">{error}</p> : null}
       <div className="flex gap-2">
         <button disabled={loading} onClick={() => submit("login")} className="flex-1 rounded bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900">Sign in</button>

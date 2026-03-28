@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomNav } from "@/components/workout/BottomNav";
+import { CoachNotesPanel } from "@/components/workout/CoachNotesPanel";
 import { PostWorkoutModal } from "@/components/workout/PostWorkoutModal";
 import { WorkoutScreen } from "@/components/workout/WorkoutScreen";
 import { MOCK_PROGRAM_DAYS } from "@/lib/mock-data";
@@ -45,6 +46,13 @@ type TemplateSetRow = {
   is_bodyweight?: boolean;
   note?: string | null;
   variation?: string | null;
+};
+
+type CoachNotesState = {
+  summary_note: string;
+  detailed_feedback: string;
+  next_session_focus: string;
+  recovery_observation: string;
 };
 
 type ProgramDayData = {
@@ -118,7 +126,7 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [finishMessage, setFinishMessage] = useState<string | null>(null);
-  const [coachSummary, setCoachSummary] = useState<string | null>(null);
+  const [coachNotes, setCoachNotes] = useState<CoachNotesState | null>(null);
   const [nextSessionFocusBanner, setNextSessionFocusBanner] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [activeRest, setActiveRest] = useState<ActiveRestTimer | null>(null);
@@ -136,6 +144,7 @@ export default function TodayPage() {
     async function loadToday() {
       setLoading(true);
       setError(null);
+      setCoachNotes(null);
       const res = await fetch("/api/programs");
       if (!res.ok) {
         const firstDemoDay = MOCK_PROGRAM_DAYS[0];
@@ -305,6 +314,7 @@ export default function TodayPage() {
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("demo") === "1";
     if (workoutId || !day) return;
+    setCoachNotes(null);
     if (isDemoMode) {
       setWorkoutId("demo-workout");
       setFinishMessage("Demo workout started. You can log and finish this session.");
@@ -518,6 +528,18 @@ export default function TodayPage() {
         activeRestTimer={activeRest}
         isFinishing={finishing}
         canFinish={Boolean(workoutId)}
+        startWorkoutSlot={
+          !loading && !workoutId && day ? (
+            <button
+              type="button"
+              className="h-11 w-full rounded-full bg-neutral-100 px-4 text-base font-semibold text-neutral-950 shadow-sm active:scale-[0.99] disabled:opacity-50"
+              onClick={startWorkout}
+              disabled={!day}
+            >
+              Start Workout
+            </button>
+          ) : null
+        }
         onFinishWorkout={() => setShowFinish(true)}
         onUpdateSet={applyUpdateSet}
         onCompleteSet={applyCompleteSet}
@@ -534,16 +556,7 @@ export default function TodayPage() {
         {loading ? <p className="text-sm text-neutral-400">Loading today session...</p> : null}
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
         {finishMessage ? <p className="text-[11px] text-neutral-500">{finishMessage}</p> : null}
-        {coachSummary ? (
-          <p className="text-[11px] text-neutral-500">
-            Coach summary: {coachSummary}
-          </p>
-        ) : null}
-        {!workoutId ? (
-          <button className="h-10 w-full rounded-full bg-neutral-100 px-4 text-sm font-medium text-neutral-950" onClick={startWorkout} disabled={!day}>
-            Start Workout
-          </button>
-        ) : null}
+        {coachNotes ? <CoachNotesPanel variant="compact" {...coachNotes} /> : null}
       </div>
       <PostWorkoutModal
         open={showFinish}
@@ -560,9 +573,16 @@ export default function TodayPage() {
           }
           if (isDemoMode) {
             setFinishMessage("Demo mode complete. Sign in to save and run AI updates.");
-            setCoachSummary(
-              "Good pace and consistency. Keep technique tight and build reps before load.",
-            );
+            setCoachNotes({
+              summary_note:
+                "Demo session complete. Sign in to link real workouts, history, and full AI coaching.",
+              detailed_feedback:
+                "Demo mode:\nCoaching blocks will reference your actual sets, rep trends, and prior sessions once you sign in and save a real workout.",
+              next_session_focus:
+                "• Sign in to persist sessions\n• Log every working set for accurate progression\n• Re-run finish to generate structured notes",
+              recovery_observation:
+                "Recovery is not assessed in demo mode—your logged difficulty and notes will matter once you use a real account.",
+            });
             setShowFinish(false);
             setWorkoutId(null);
             return;
@@ -607,7 +627,12 @@ export default function TodayPage() {
                 return;
               }
               setFinishMessage(aiData?.message ?? "Updated next session.");
-              setCoachSummary(aiData?.summary_note ?? null);
+              setCoachNotes({
+                summary_note: String(aiData?.summary_note ?? ""),
+                detailed_feedback: String(aiData?.detailed_feedback ?? ""),
+                next_session_focus: String(aiData?.next_session_focus ?? ""),
+                recovery_observation: String(aiData?.recovery_observation ?? ""),
+              });
               setNextSessionFocusBanner(aiData?.next_session_focus ?? null);
             })();
             return;

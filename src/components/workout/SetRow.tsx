@@ -63,7 +63,7 @@ export function SetRow({
   return (
     <div
       ref={rowRef}
-      className={`grid h-[50px] cursor-pointer items-center gap-1 border-t border-neutral-800/60 px-2 text-sm tabular-nums transition-colors duration-75 first:border-t-0 active:bg-neutral-800/40 scroll-mb-28 ${gridTemplate} ${set.completed ? "bg-neutral-100/10" : ""} ${isActive ? "bg-neutral-800/12" : ""}`}
+      className={`grid min-h-[52px] cursor-pointer items-center gap-1 border-t border-neutral-800/60 px-2 text-sm tabular-nums transition-colors duration-75 first:border-t-0 active:bg-neutral-800/40 scroll-mb-28 ${gridTemplate} ${set.completed ? "bg-neutral-100/10" : ""} ${isActive ? "bg-neutral-800/12" : ""}`}
       onClick={() => {
         if (document.activeElement === repsInputRef.current) return;
         onActiveRowChange({ exerciseId, setId: set.id });
@@ -106,7 +106,7 @@ export function SetRow({
           pattern="[0-9]*"
           value={set.actualWeight ?? ""}
           placeholder="lb"
-          className="h-8 w-full max-w-[84px] rounded border-0 bg-transparent px-1.5 text-right text-sm text-neutral-100 outline-none focus:bg-neutral-800/35"
+          className="h-9 w-full max-w-[88px] rounded border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none focus:bg-neutral-800/35"
           ref={weightInputRef}
           onClick={(e) => e.stopPropagation()}
           onFocus={() => onActiveRowChange({ exerciseId, setId: set.id })}
@@ -126,7 +126,7 @@ export function SetRow({
           pattern="[0-9]*"
           value={set.actualReps ?? ""}
           placeholder="reps"
-          className="h-8 w-full max-w-[56px] rounded border-0 bg-transparent px-1.5 text-right text-sm text-neutral-100 outline-none focus:bg-neutral-800/35"
+          className="h-9 w-full max-w-[60px] rounded border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none focus:bg-neutral-800/35"
           ref={repsInputRef}
           autoFocus={autoFocus}
           onClick={(e) => e.stopPropagation()}

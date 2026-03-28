@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ExerciseList } from "@/components/workout/ExerciseList";
 import { FloatingRestTimer } from "@/components/workout/FloatingRestTimer";
 import { WorkoutHeader } from "@/components/workout/WorkoutHeader";
@@ -41,6 +42,8 @@ export type WorkoutScreenProps = {
   onOpenExerciseNotes?: (exerciseId: string) => void;
   onSkipRestTimer: () => void;
   onDismissRestTimer: () => void;
+  /** Shown directly under the title row (e.g. Start Workout) before meta + exercise list */
+  startWorkoutSlot?: ReactNode;
 };
 
 export function WorkoutScreen({
@@ -66,6 +69,7 @@ export function WorkoutScreen({
   onOpenExerciseNotes,
   onSkipRestTimer,
   onDismissRestTimer,
+  startWorkoutSlot,
 }: WorkoutScreenProps) {
   return (
     <main className={todayLayout.screen}>
@@ -79,6 +83,9 @@ export function WorkoutScreen({
           onFinishWorkout={onFinishWorkout}
           onOpenWorkoutOptions={onOpenWorkoutOptions}
         />
+        {startWorkoutSlot ? (
+          <div className="w-full shrink-0 px-0 pt-0.5">{startWorkoutSlot}</div>
+        ) : null}
         <WorkoutMetaBar
           elapsedSeconds={elapsedSeconds}
           exerciseCount={exercises.length}

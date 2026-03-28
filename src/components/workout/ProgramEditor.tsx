@@ -60,16 +60,16 @@ export function ProgramEditor({ dayId, dayName, initialExercises }: Props) {
       {message ? <p className="text-xs text-zinc-400">{message}</p> : null}
       {exercises.map((ex, idx) => (
         <div key={ex.id} className="rounded border border-zinc-800 bg-zinc-900 p-3 text-sm">
-          <input className="mb-2 h-9 w-full rounded bg-zinc-950 px-2" value={ex.exercise_name} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, exercise_name: e.target.value } : v))} />
+          <input className="mb-2 h-10 w-full rounded bg-zinc-950 px-2 text-base" value={ex.exercise_name} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, exercise_name: e.target.value } : v))} />
           <div className="mb-2 grid grid-cols-3 gap-2">
-            <input className="h-9 rounded bg-zinc-950 px-2" type="number" value={ex.target_sets} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, target_sets: Number(e.target.value) } : v))} />
-            <input className="h-9 rounded bg-zinc-950 px-2" type="number" value={ex.rep_min} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, rep_min: Number(e.target.value) } : v))} />
-            <input className="h-9 rounded bg-zinc-950 px-2" type="number" value={ex.rep_max} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, rep_max: Number(e.target.value) } : v))} />
+            <input className="h-10 rounded bg-zinc-950 px-2 text-base" type="number" value={ex.target_sets} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, target_sets: Number(e.target.value) } : v))} />
+            <input className="h-10 rounded bg-zinc-950 px-2 text-base" type="number" value={ex.rep_min} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, rep_min: Number(e.target.value) } : v))} />
+            <input className="h-10 rounded bg-zinc-950 px-2 text-base" type="number" value={ex.rep_max} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, rep_max: Number(e.target.value) } : v))} />
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <input className="h-9 rounded bg-zinc-950 px-2" type="number" value={ex.target_weight} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, target_weight: Number(e.target.value) } : v))} />
-            <input className="h-9 rounded bg-zinc-950 px-2" type="number" value={ex.increment_lbs} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, increment_lbs: Number(e.target.value) } : v))} />
-            <input className="h-9 rounded bg-zinc-950 px-2" type="number" value={ex.rest_seconds} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, rest_seconds: Number(e.target.value) } : v))} />
+            <input className="h-10 rounded bg-zinc-950 px-2 text-base" type="number" value={ex.target_weight} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, target_weight: Number(e.target.value) } : v))} />
+            <input className="h-10 rounded bg-zinc-950 px-2 text-base" type="number" value={ex.increment_lbs} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, increment_lbs: Number(e.target.value) } : v))} />
+            <input className="h-10 rounded bg-zinc-950 px-2 text-base" type="number" value={ex.rest_seconds} onChange={(e) => setExercises((prev) => prev.map((v, i) => i === idx ? { ...v, rest_seconds: Number(e.target.value) } : v))} />
           </div>
           <div className="mt-2 flex gap-2">
             <button className="h-8 rounded bg-zinc-800 px-2 text-xs" disabled={idx === 0} onClick={() => moveExercise(idx, idx - 1)}>Up</button>

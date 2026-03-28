@@ -34,8 +34,8 @@ export function PostWorkoutModal({ open, submitting = false, onClose, onSubmit }
             <button key={v} className={`rounded px-2 py-1 text-xs ${pain === v ? "bg-zinc-200 text-zinc-900" : "bg-zinc-800 text-zinc-200"}`} onClick={() => setPain(v)}>{v}</button>
           ))}
         </div>
-        <input className="mb-2 h-10 w-full rounded bg-zinc-900 px-2 text-sm text-zinc-100" placeholder="Substitutions (optional)" value={subs} onChange={(e) => setSubs(e.target.value)} />
-        <textarea className="mb-3 w-full rounded bg-zinc-900 px-2 py-2 text-sm text-zinc-100" rows={3} placeholder="General note (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <input className="mb-2 h-11 w-full rounded bg-zinc-900 px-2 text-base text-zinc-100" placeholder="Substitutions (optional)" value={subs} onChange={(e) => setSubs(e.target.value)} />
+        <textarea className="mb-3 w-full rounded bg-zinc-900 px-2 py-2 text-base leading-snug text-zinc-100" rows={3} placeholder="General note (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
         <div className="flex gap-2">
           <button
             type="button"

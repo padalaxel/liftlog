@@ -17,3 +17,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* iOS Safari: avoid auto-zoom on focus when font would be <16px */
+input,
+textarea,
+select {
+  font-size: 16px;
+  line-height: 1.4;
+}

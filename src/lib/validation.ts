@@ -25,10 +25,10 @@ export const finishWorkoutSchema = z.object({
 });
 
 export const aiUpdateSchema = z.object({
-  summary_note: z.string().max(300),
-  detailed_feedback: z.string().min(180).max(2400),
-  next_session_focus: z.string().max(220),
-  recovery_observation: z.string().max(220),
+  summary_note: z.string().min(20).max(450),
+  detailed_feedback: z.string().min(200).max(4500),
+  next_session_focus: z.string().min(20).max(900),
+  recovery_observation: z.string().min(20).max(450),
   exercises: z.array(
     z.object({
       exercise_name: z.string(),

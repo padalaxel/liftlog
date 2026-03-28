@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { CoachNotesPanel } from "@/components/workout/CoachNotesPanel";
 
 type WorkoutSet = {
   id: string;
@@ -78,32 +79,15 @@ export default function WorkoutDetailPage() {
       </h1>
       {loading ? <p className="text-sm text-zinc-400">Loading...</p> : null}
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      <section className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+      <section className="space-y-3">
         <h2 className="text-base font-semibold text-zinc-100">Coach Notes</h2>
-        <div className="rounded-md bg-zinc-950 p-2.5">
-          <p className="text-xs font-semibold text-zinc-400">Summary</p>
-          <p className="mt-1 text-sm leading-6 text-zinc-200">
-            {workout?.ai_summary_note ?? "No summary yet."}
-          </p>
-        </div>
-        <div className="rounded-md bg-zinc-950 p-2.5">
-          <p className="text-xs font-semibold text-zinc-400">Coach Notes</p>
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">
-            {workout?.ai_detailed_feedback ?? "Detailed coach feedback not generated yet."}
-          </p>
-        </div>
-        <div className="rounded-md bg-zinc-950 p-2.5">
-          <p className="text-xs font-semibold text-zinc-400">Next Session Focus</p>
-          <p className="mt-1 text-sm leading-6 text-zinc-100">
-            {workout?.ai_next_session_focus ?? "No focus note yet."}
-          </p>
-        </div>
-        <div className="rounded-md bg-zinc-950 p-2.5">
-          <p className="text-xs font-semibold text-zinc-400">Recovery</p>
-          <p className="mt-1 text-sm leading-6 text-zinc-100">
-            {workout?.ai_recovery_observation ?? "No recovery observation yet."}
-          </p>
-        </div>
+        <CoachNotesPanel
+          variant="full"
+          summary_note={workout?.ai_summary_note}
+          detailed_feedback={workout?.ai_detailed_feedback}
+          next_session_focus={workout?.ai_next_session_focus}
+          recovery_observation={workout?.ai_recovery_observation}
+        />
         {!workout?.ai_detailed_feedback ? (
           <button
             className="h-9 rounded bg-zinc-100 px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
