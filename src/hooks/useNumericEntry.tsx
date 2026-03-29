@@ -40,6 +40,8 @@ type Ctx = {
   /** Commit buffer to workout state and close (backdrop, keyboard icon, last Next) */
   close: () => void;
   digit: (d: string) => void;
+  /** Weight only: inserts a single decimal point when valid. */
+  decimal: () => void;
   backspace: () => void;
   next: () => void;
   adjust: (delta: number) => void;
@@ -70,6 +72,39 @@ function getAdjustStep(kind: NumericFieldKind): number {
   if (kind === "weight") return 5;
   if (kind === "reps") return 1;
   return 1;
+}
+
+const MAX_BUFFER_LEN_REPS = 6;
+/** Digits + optional single decimal for weight (e.g. 12.25). */
+const MAX_BUFFER_LEN_WEIGHT = 12;
+
+function weightBufferFromInitial(initial: number | null | undefined): string {
+  if (initial == null || initial === undefined) return "";
+  const n = Number(initial);
+  if (!Number.isFinite(n)) return "";
+  if (Number.isInteger(n)) return String(n);
+  const s = n.toFixed(4).replace(/\.?0+$/, "");
+  return s === "" ? String(n) : s;
+}
+
+function formatWeightBufferDisplay(n: number): string {
+  const r = Math.round(Math.max(0, n) * 100) / 100;
+  if (Number.isInteger(r)) return String(r);
+  return r.toFixed(2).replace(/\.?0+$/, "") || "0";
+}
+
+function parseCommittedWeight(raw: string): number | null {
+  const t = raw.trim();
+  if (t === "" || t === ".") return null;
+  const n = parseFloat(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseCommittedReps(raw: string): number | null {
+  const t = raw.trim();
+  if (t === "") return null;
+  const n = parseInt(t, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 export type NumericEntryBridgeApi = {
@@ -140,9 +175,23 @@ export function NumericEntryProvider({
         onLiveChange({ exerciseId: ctx.exerciseId, setId: ctx.setId, field, value: null });
         return;
       }
-      const n = parseInt(raw, 10);
-      if (!Number.isFinite(n)) return;
-      onLiveChange({ exerciseId: ctx.exerciseId, setId: ctx.setId, field, value: n });
+      if (ctx.kind === "reps") {
+        if (raw.endsWith(".")) return;
+        const n = parseCommittedReps(raw);
+        if (n === null) return;
+        onLiveChange({ exerciseId: ctx.exerciseId, setId: ctx.setId, field, value: n });
+        return;
+      }
+      if (raw === "." || raw.endsWith(".")) {
+        const n = parseFloat(raw);
+        if (Number.isFinite(n)) {
+          onLiveChange({ exerciseId: ctx.exerciseId, setId: ctx.setId, field, value: n });
+        }
+        return;
+      }
+      const w = parseCommittedWeight(raw);
+      if (w === null) return;
+      onLiveChange({ exerciseId: ctx.exerciseId, setId: ctx.setId, field, value: w });
     },
     [onLiveChange],
   );
@@ -157,9 +206,15 @@ export function NumericEntryProvider({
         onCommit(ctx.exerciseId, ctx.setId, field, null);
         return;
       }
-      const n = parseInt(raw, 10);
-      if (!Number.isFinite(n)) return;
-      onCommit(ctx.exerciseId, ctx.setId, field, n);
+      if (ctx.kind === "reps") {
+        const n = parseCommittedReps(raw);
+        if (n === null) return;
+        onCommit(ctx.exerciseId, ctx.setId, field, n);
+        return;
+      }
+      const w = parseCommittedWeight(raw.endsWith(".") ? raw.slice(0, -1) : raw);
+      if (w === null) return;
+      onCommit(ctx.exerciseId, ctx.setId, field, w);
     },
     [onCommit],
   );
@@ -198,7 +253,11 @@ export function NumericEntryProvider({
       activeRef.current = nextActive;
       setActive(nextActive);
       const buf =
-        initial != null && initial !== undefined ? String(Math.round(Number(initial))) : "";
+        initial != null && initial !== undefined
+          ? k === "weight"
+            ? weightBufferFromInitial(initial)
+            : String(Math.round(Number(initial)))
+          : "";
       replaceNextDigitRef.current = true;
       bufferRef.current = buf;
       setBuffer(buf);
@@ -235,14 +294,21 @@ export function NumericEntryProvider({
     const a = activeRef.current;
     if (!a || a.kind === "rpe") return;
     const field = a.kind === "reps" ? "actualReps" : "actualWeight";
-    const raw = bufferRef.current.trim();
+    let raw = bufferRef.current.trim();
+    if (raw.endsWith(".")) raw = raw.slice(0, -1);
     if (raw === "") {
       onCommit(a.exerciseId, a.setId, field, null);
       return;
     }
-    const n = parseInt(raw, 10);
-    if (!Number.isFinite(n)) return;
-    onCommit(a.exerciseId, a.setId, field, n);
+    if (a.kind === "reps") {
+      const n = parseCommittedReps(raw);
+      if (n === null) return;
+      onCommit(a.exerciseId, a.setId, field, n);
+      return;
+    }
+    const w = parseCommittedWeight(raw);
+    if (w === null) return;
+    onCommit(a.exerciseId, a.setId, field, w);
   }, [onCommit]);
 
   /** Finalize reps for Strong-style Next: empty buffer → repRange.max when available. */
@@ -289,12 +355,20 @@ export function NumericEntryProvider({
       if (!a || a.kind === "rpe") return;
       setBuffer((prev) => {
         let next: string;
+        const maxLen = a.kind === "weight" ? MAX_BUFFER_LEN_WEIGHT : MAX_BUFFER_LEN_REPS;
         if (replaceNextDigitRef.current) {
           next = d;
           replaceNextDigitRef.current = false;
         } else {
           const cand = prev + d;
-          next = cand.length <= 6 ? cand : prev;
+          if (a.kind === "weight") {
+            if (!/^\d*\.?\d*$/.test(cand) || cand.length > maxLen) return prev;
+            const [, frac] = cand.split(".");
+            if (frac != null && frac.length > 4) return prev;
+            next = cand;
+          } else {
+            next = cand.length <= maxLen ? cand : prev;
+          }
         }
         bufferRef.current = next;
         emitLiveChange(a, next);
@@ -303,6 +377,26 @@ export function NumericEntryProvider({
     },
     [emitLiveChange],
   );
+
+  const decimal = useCallback(() => {
+    const a = activeRef.current;
+    if (!a || a.kind !== "weight") return;
+    setBuffer((prev) => {
+      let next: string;
+      if (replaceNextDigitRef.current) {
+        next = "0.";
+        replaceNextDigitRef.current = false;
+      } else {
+        if (prev.includes(".")) return prev;
+        const base = prev === "" ? "0" : prev;
+        next = `${base}.`;
+      }
+      if (next.length > MAX_BUFFER_LEN_WEIGHT) return prev;
+      bufferRef.current = next;
+      emitLiveChange(a, next);
+      return next;
+    });
+  }, [emitLiveChange]);
 
   const backspace = useCallback(() => {
     const a = activeRef.current;
@@ -325,10 +419,15 @@ export function NumericEntryProvider({
       const step = getAdjustStep(a.kind);
       const effectiveDelta = (sign >= 0 ? 1 : -1) * step;
       setBuffer((prev) => {
-        const current = parseInt(prev, 10);
+        let raw = prev.trim();
+        if (raw.endsWith(".")) raw = raw.slice(0, -1);
+        const current =
+          a.kind === "weight"
+            ? parseFloat(raw)
+            : parseInt(raw, 10);
         const base = Number.isFinite(current) ? current : 0;
         const nextVal = Math.max(0, base + effectiveDelta);
-        const s = String(nextVal);
+        const s = a.kind === "weight" ? formatWeightBufferDisplay(nextVal) : String(nextVal);
         bufferRef.current = s;
         emitLiveChange(a, s);
         return s;
@@ -384,6 +483,7 @@ export function NumericEntryProvider({
       openWeight,
       close: dismiss,
       digit,
+      decimal,
       backspace,
       next,
       adjust,
@@ -399,6 +499,7 @@ export function NumericEntryProvider({
       openWeight,
       dismiss,
       digit,
+      decimal,
       backspace,
       next,
       adjust,

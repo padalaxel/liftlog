@@ -28,7 +28,7 @@ export function InlineRestTimerRow(props: InlineRestTimerRowProps) {
           isUrgent ? "text-red-400" : "text-blue-400"
         }`}
       >
-        {formatSeconds(remainingSeconds)} rest
+        {formatSeconds(remainingSeconds)} remaining
       </span>
       <span className="h-px min-w-[24px] flex-1 bg-neutral-700/45" aria-hidden />
     </div>

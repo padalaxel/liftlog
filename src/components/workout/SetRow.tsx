@@ -105,6 +105,7 @@ export function SetRow({
           tabIndex={-1}
           inputMode="none"
           autoComplete="off"
+          data-numeric-target={`${exerciseId}:${set.id}:weight`}
           value={set.actualWeight ?? ""}
           placeholder="lb"
           className={`h-9 w-full max-w-[88px] cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-right text-base outline-none transition-shadow duration-150 ${valueTextClass} ${weightActive ? activeFieldRing : "hover:bg-neutral-800/20"}`}
@@ -123,6 +124,7 @@ export function SetRow({
           tabIndex={-1}
           inputMode="none"
           autoComplete="off"
+          data-numeric-target={`${exerciseId}:${set.id}:reps`}
           value={set.actualReps ?? ""}
           placeholder="reps"
           className={`h-9 w-full max-w-[60px] cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-right text-base outline-none transition-shadow duration-150 ${valueTextClass} ${repsActive ? activeFieldRing : "hover:bg-neutral-800/20"}`}
