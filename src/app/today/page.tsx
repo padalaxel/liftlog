@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { BottomNav } from "@/components/workout/BottomNav";
 import { CoachDebriefModal } from "@/components/workout/CoachDebriefModal";
 import { NumericEntrySheet } from "@/components/workout/numeric-entry/NumericEntrySheet";
@@ -8,7 +10,13 @@ import { PostWorkoutModal } from "@/components/workout/PostWorkoutModal";
 import { WorkoutScreen } from "@/components/workout/WorkoutScreen";
 import type { NumericEntryBridgeApi } from "@/hooks/useNumericEntry";
 import { NumericEntryProvider } from "@/hooks/useNumericEntry";
+import {
+  clearActiveWorkoutSession,
+  readActiveWorkoutSession,
+  writeActiveWorkoutSession,
+} from "@/lib/active-workout-session";
 import { MOCK_PROGRAM_DAYS } from "@/lib/mock-data";
+import { pickLatestFinishedWorkout, pickSuggestedProgramDay } from "@/lib/next-suggested-program-day";
 import { coachStructuredPayloadSchema } from "@/lib/validation";
 import type { CoachStructuredPayload } from "@/lib/validation";
 import type {
@@ -64,12 +72,36 @@ type ProgramDayData = {
     target_sets: number;
     rep_min: number;
     rep_max: number;
+    repRangeMin?: number;
+    repRangeMax?: number;
     target_weight: number;
     cue_text: string | null;
     rest_seconds: number;
     template_sets?: TemplateSetRow[] | null;
   }>;
 };
+
+function mapDemoDayToProgramDayData(day: (typeof MOCK_PROGRAM_DAYS)[number]): ProgramDayData {
+  return {
+    id: day.id,
+    name: day.name,
+    order_index: day.order_index,
+    template_exercises: day.template_exercises.map((ex) => ({
+      id: ex.id,
+      exercise_name: ex.exercise_name,
+      order_index: ex.order_index,
+      target_sets: ex.target_sets,
+      rep_min: ex.rep_min,
+      rep_max: ex.rep_max,
+      repRangeMin: ex.repRangeMin,
+      repRangeMax: ex.repRangeMax,
+      target_weight: ex.target_weight,
+      cue_text: ex.cue_text,
+      rest_seconds: ex.rest_seconds,
+      template_sets: ex.template_sets,
+    })),
+  };
+}
 
 function formatPlanLabel(bodyweight: boolean, weight: number, reps: number) {
   if (bodyweight && weight === 0) return `BW x ${reps}`;
@@ -127,7 +159,18 @@ function normalizeExercises(input: ExerciseState[]): ExerciseState[] {
   }));
 }
 
-export default function TodayPage() {
+function todayHref(dayId: string, isDemo: boolean) {
+  const params = new URLSearchParams();
+  params.set("dayId", dayId);
+  if (isDemo) params.set("demo", "1");
+  return `/today?${params.toString()}`;
+}
+
+function TodayWorkoutContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const dayIdParam = searchParams.get("dayId");
+  const isDemoMode = searchParams.get("demo") === "1";
   const [elapsed, setElapsed] = useState(0);
   const [showFinish, setShowFinish] = useState(false);
   const [workoutId, setWorkoutId] = useState<string | null>(null);
@@ -149,6 +192,11 @@ export default function TodayPage() {
   const restTimerIdRef = useRef(0);
   const focusRequestRef = useRef(0);
   const numericBridgeRef = useRef<NumericEntryBridgeApi | null>(null);
+  const [sessionConflict, setSessionConflict] = useState<{
+    otherDayId: string;
+    otherName: string;
+    isDemo: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setElapsed((v) => v + 1), 1000);
@@ -162,72 +210,179 @@ export default function TodayPage() {
       setDebriefOpen(false);
       const res = await fetch("/api/programs");
       if (!res.ok) {
-        const firstDemoDay = MOCK_PROGRAM_DAYS[0];
-        setDay({
-          id: firstDemoDay.id,
-          name: firstDemoDay.name,
-          order_index: firstDemoDay.order_index,
-          template_exercises: firstDemoDay.template_exercises.map((ex) => ({
-            id: ex.id,
-            exercise_name: ex.exercise_name,
-            order_index: ex.order_index,
-            target_sets: ex.target_sets,
-            rep_min: ex.rep_min,
-            rep_max: ex.rep_max,
-            target_weight: ex.target_weight,
-            cue_text: ex.cue_text,
-            rest_seconds: ex.rest_seconds,
-          })),
-        });
-        setExercises(
-          firstDemoDay.template_exercises.map((ex) => {
-            const templateRow = ex as ProgramDayData["template_exercises"][number];
-            const sets = buildInitialSetsFromTemplate(templateRow);
-            return {
-              id: ex.id,
-              template_exercise_id: ex.id,
-              name: ex.exercise_name,
-              cue_text: ex.cue_text ?? "Control the eccentric",
-              progression_note: "Hold weight",
-              rest_seconds: ex.rest_seconds,
-              rep_min: ex.rep_min,
-              rep_max: ex.rep_max,
-              bodyweight: Boolean(templateRow.template_sets?.some((s) => s.is_bodyweight)),
-              sets,
-            };
-          }),
-        );
+        const sortedDemo = MOCK_PROGRAM_DAYS.slice().sort((a, b) => a.order_index - b.order_index);
+        let selected = pickSuggestedProgramDay(sortedDemo, null);
+        if (dayIdParam) {
+          const found = sortedDemo.find((d) => d.id === dayIdParam);
+          if (found) selected = found;
+        }
+        const mapped = mapDemoDayToProgramDayData(selected);
+        setDay(mapped);
+
+        const session = readActiveWorkoutSession();
+        const relevant = Boolean(session && session.isDemo === isDemoMode);
+        if (relevant && session!.workoutId && session!.programDayId !== mapped.id) {
+          const otherName =
+            MOCK_PROGRAM_DAYS.find((d) => d.id === session!.programDayId)?.name ?? "Another workout";
+          setSessionConflict({
+            otherDayId: session!.programDayId,
+            otherName,
+            isDemo: isDemoMode,
+          });
+          setWorkoutId(null);
+        } else if (relevant && session?.workoutId && session.programDayId === mapped.id) {
+          setSessionConflict(null);
+          setWorkoutId(session.workoutId);
+        } else {
+          setSessionConflict(null);
+          setWorkoutId(null);
+        }
+
+        const draftKey = `today-draft:${mapped.id}`;
+        const stored = window.localStorage.getItem(draftKey);
+        if (stored) {
+          setExercises(normalizeExercises(JSON.parse(stored) as ExerciseState[]));
+        } else {
+          setExercises(
+            selected.template_exercises.map((ex) => {
+              const templateRow = ex as ProgramDayData["template_exercises"][number];
+              const sets = buildInitialSetsFromTemplate(templateRow);
+              return {
+                id: ex.id,
+                template_exercise_id: ex.id,
+                name: ex.exercise_name,
+                cue_text: ex.cue_text ?? "Control the eccentric",
+                progression_note: "Hold weight",
+                rest_seconds: ex.rest_seconds,
+                rep_min: ex.rep_min,
+                rep_max: ex.rep_max,
+                bodyweight: Boolean(templateRow.template_sets?.some((s) => s.is_bodyweight)),
+                sets,
+              };
+            }),
+          );
+        }
         setError("Demo mode: log UI works, but database save requires sign in.");
         setLoading(false);
         return;
       }
       const data = await res.json();
-      const firstDay = data?.programs?.[0]?.program_days?.slice()?.sort((a: ProgramDayData, b: ProgramDayData) => a.order_index - b.order_index)?.[0] as ProgramDayData | undefined;
-      if (!firstDay) {
+      const programDays = (data?.programs?.[0]?.program_days ?? [])
+        .slice()
+        .sort((a: ProgramDayData, b: ProgramDayData) => a.order_index - b.order_index) as ProgramDayData[];
+      if (programDays.length === 0) {
         setLoading(false);
         setError("No program day found. Seed your program first.");
         return;
       }
-      setDay(firstDay);
+
       const historyRes = await fetch("/api/history");
+      let suggestedDay = programDays[0];
       if (historyRes.ok) {
         const historyData = await historyRes.json();
-        const latestForDay = (historyData.history ?? []).find(
-          (w: { program_day_id: string; ai_next_session_focus: string | null }) =>
-            w.program_day_id === firstDay.id && w.ai_next_session_focus,
+        const history = (historyData.history ?? []) as Array<{
+          program_day_id: string;
+          finished_at: string | null;
+          ai_next_session_focus?: string | null;
+        }>;
+        const lastFinished = pickLatestFinishedWorkout(history);
+        suggestedDay = pickSuggestedProgramDay(programDays, lastFinished);
+        let selectedDay = suggestedDay;
+        if (dayIdParam) {
+          const found = programDays.find((d) => d.id === dayIdParam);
+          if (found) selectedDay = found;
+        }
+        const latestForDay = history.find(
+          (w) => w.program_day_id === selectedDay.id && w.ai_next_session_focus,
         );
         if (latestForDay?.ai_next_session_focus) {
           setNextSessionFocusBanner(latestForDay.ai_next_session_focus);
         }
+
+        setDay(selectedDay);
+
+        const session = readActiveWorkoutSession();
+        const relevant = Boolean(session && session.isDemo !== true);
+        if (relevant && session!.workoutId && session!.programDayId !== selectedDay.id) {
+          const otherName =
+            programDays.find((d) => d.id === session!.programDayId)?.name ?? "Another workout";
+          setSessionConflict({
+            otherDayId: session!.programDayId,
+            otherName,
+            isDemo: false,
+          });
+          setWorkoutId(null);
+        } else if (relevant && session?.workoutId && session.programDayId === selectedDay.id) {
+          setSessionConflict(null);
+          setWorkoutId(session.workoutId);
+        } else {
+          setSessionConflict(null);
+          setWorkoutId(null);
+        }
+
+        const draftKey = `today-draft:${selectedDay.id}`;
+        const stored = window.localStorage.getItem(draftKey);
+        if (stored) {
+          setExercises(normalizeExercises(JSON.parse(stored) as ExerciseState[]));
+        } else {
+          setExercises(
+            selectedDay.template_exercises
+              .slice()
+              .sort((a, b) => a.order_index - b.order_index)
+              .map((ex) => {
+                const sets = buildInitialSetsFromTemplate(ex);
+                return {
+                  id: ex.id,
+                  template_exercise_id: ex.id,
+                  name: ex.exercise_name,
+                  cue_text: ex.cue_text ?? "Control the eccentric",
+                  progression_note: "Hold weight",
+                  rest_seconds: ex.rest_seconds,
+                  rep_min: ex.rep_min,
+                  rep_max: ex.rep_max,
+                  bodyweight: Boolean(ex.template_sets?.some((s) => s.is_bodyweight)),
+                  sets,
+                };
+              }),
+          );
+        }
+        setLoading(false);
+        return;
       }
 
-      const draftKey = `today-draft:${firstDay.id}`;
+      let selectedDay = suggestedDay;
+      if (dayIdParam) {
+        const found = programDays.find((d) => d.id === dayIdParam);
+        if (found) selectedDay = found;
+      }
+      setDay(selectedDay);
+
+      const session = readActiveWorkoutSession();
+      const relevant = Boolean(session && session.isDemo !== true);
+      if (relevant && session!.workoutId && session!.programDayId !== selectedDay.id) {
+        const otherName =
+          programDays.find((d) => d.id === session!.programDayId)?.name ?? "Another workout";
+        setSessionConflict({
+          otherDayId: session!.programDayId,
+          otherName,
+          isDemo: false,
+        });
+        setWorkoutId(null);
+      } else if (relevant && session?.workoutId && session.programDayId === selectedDay.id) {
+        setSessionConflict(null);
+        setWorkoutId(session.workoutId);
+      } else {
+        setSessionConflict(null);
+        setWorkoutId(null);
+      }
+
+      const draftKey = `today-draft:${selectedDay.id}`;
       const stored = window.localStorage.getItem(draftKey);
       if (stored) {
         setExercises(normalizeExercises(JSON.parse(stored) as ExerciseState[]));
       } else {
         setExercises(
-          firstDay.template_exercises
+          selectedDay.template_exercises
             .slice()
             .sort((a, b) => a.order_index - b.order_index)
             .map((ex) => {
@@ -249,8 +404,8 @@ export default function TodayPage() {
       }
       setLoading(false);
     }
-    loadToday();
-  }, []);
+    void loadToday();
+  }, [dayIdParam, isDemoMode]);
 
   useEffect(() => {
     if (!day || exercises.length === 0) return;
@@ -338,13 +493,17 @@ export default function TodayPage() {
   }, [activeRest?.startedAt]);
 
   async function startWorkout() {
-    const isDemoMode =
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("demo") === "1";
     if (workoutId || !day) return;
     setDebriefOpen(false);
     if (isDemoMode) {
       setWorkoutId("demo-workout");
+      writeActiveWorkoutSession({
+        workoutId: "demo-workout",
+        programDayId: day.id,
+        programDayName: day.name,
+        startedAt: new Date().toISOString(),
+        isDemo: true,
+      });
       setFinishMessage("Demo workout started. You can log and finish this session.");
       return;
     }
@@ -364,7 +523,16 @@ export default function TodayPage() {
       setFinishMessage(msg);
       return;
     }
-    if (data?.workout?.id) setWorkoutId(data.workout.id);
+    if (data?.workout?.id) {
+      setWorkoutId(data.workout.id);
+      writeActiveWorkoutSession({
+        workoutId: data.workout.id,
+        programDayId: day.id,
+        programDayName: day.name,
+        startedAt: new Date().toISOString(),
+        isDemo: false,
+      });
+    }
   }
 
   async function runCoachAfterSave(savedId: string) {
@@ -671,6 +839,32 @@ export default function TodayPage() {
         }}
         syncFocus={requestSetFocus}
       >
+      {sessionConflict ? (
+        <div className="mx-auto mb-2 w-full max-w-[430px] space-y-2 rounded-lg border border-amber-800/60 bg-amber-950/40 px-3 py-3 text-sm text-amber-100">
+          <p>
+            You have <span className="font-semibold">{sessionConflict.otherName}</span> in progress.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Link
+              href={todayHref(sessionConflict.otherDayId, sessionConflict.isDemo)}
+              className="flex h-10 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-950"
+            >
+              Continue that workout
+            </Link>
+            <button
+              type="button"
+              className="h-10 rounded-full border border-amber-700/80 text-sm font-medium text-amber-200"
+              onClick={() => {
+                clearActiveWorkoutSession();
+                setSessionConflict(null);
+                setWorkoutId(null);
+              }}
+            >
+              Discard saved session and use this day
+            </button>
+          </div>
+        </div>
+      ) : null}
       <WorkoutScreen
         workoutId={workoutId ?? "pending"}
         workoutName={day?.name ?? "Today"}
@@ -681,6 +875,7 @@ export default function TodayPage() {
         nextSessionFocus={nextSessionFocusBanner}
         isFinishing={finishing}
         canFinish={Boolean(workoutId)}
+        onBack={() => router.push("/home")}
         startWorkoutSlot={
           !loading && !workoutId && day ? (
             <button
@@ -714,15 +909,13 @@ export default function TodayPage() {
         submitting={finishing}
         onClose={() => setShowFinish(false)}
         onSubmit={async (review) => {
-          const isDemoMode =
-            typeof window !== "undefined" &&
-            new URLSearchParams(window.location.search).get("demo") === "1";
           if (!workoutId) {
             setShowFinish(false);
             setFinishMessage('Tap "Start Workout" first so your session can be saved.');
             return;
           }
           if (isDemoMode) {
+            clearActiveWorkoutSession();
             setFinishMessage("Demo mode complete. Sign in to save and run AI updates.");
             setShowFinish(false);
             setWorkoutId(null);
@@ -767,6 +960,7 @@ export default function TodayPage() {
             return;
           }
           if (finishRes.ok) {
+            clearActiveWorkoutSession();
             if (day) window.localStorage.removeItem(`today-draft:${day.id}`);
             setShowFinish(false);
             setWorkoutId(null);
@@ -794,5 +988,20 @@ export default function TodayPage() {
       <BottomNav />
       </NumericEntryProvider>
     </main>
+  );
+}
+
+export default function TodayPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto min-h-screen max-w-md p-4 pb-24">
+          <p className="text-sm text-zinc-400">Loading workout…</p>
+          <BottomNav />
+        </main>
+      }
+    >
+      <TodayWorkoutContent />
+    </Suspense>
   );
 }

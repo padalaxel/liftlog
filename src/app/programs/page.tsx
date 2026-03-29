@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BottomNav } from "@/components/workout/BottomNav";
+import { AppShell } from "@/components/app/AppShell";
 import { MOCK_PROGRAM_DAYS } from "@/lib/mock-data";
 
 type Day = { id: string; name: string; order_index: number };
@@ -33,17 +33,22 @@ export default function ProgramsPage() {
   }, []);
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-md pb-20 p-3">
-      <h1 className="mb-3 text-xl font-semibold">Programs</h1>
-      {error ? <p className="mb-2 text-sm text-red-300">{error}</p> : null}
-      <div className="space-y-2">
-        {days.map((day) => (
-          <Link key={day.id} href={`/programs/${day.id}`} className="block rounded-md border border-zinc-800 bg-zinc-900 p-3">
-            {day.name}
-          </Link>
-        ))}
-      </div>
-      <BottomNav />
-    </main>
+    <AppShell>
+      <main className="flex flex-1 flex-col p-3">
+        <h1 className="mb-3 text-xl font-semibold">Programs</h1>
+        {error ? <p className="mb-2 text-sm text-red-300">{error}</p> : null}
+        <div className="space-y-2">
+          {days.map((day) => (
+            <Link
+              key={day.id}
+              href={`/programs/${day.id}`}
+              className="block rounded-lg border border-zinc-800 bg-zinc-900 p-3 font-medium text-zinc-100"
+            >
+              {day.name}
+            </Link>
+          ))}
+        </div>
+      </main>
+    </AppShell>
   );
 }

@@ -42,7 +42,8 @@ export function AuthForm() {
       }
       return setError(authError.message);
     }
-    router.push("/today");
+    router.push("/home");
+    router.refresh();
   }
 
   return (

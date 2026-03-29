@@ -4,11 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
-  { href: "/", label: "Home" },
-  { href: "/today", label: "Today" },
+  { href: "/home", label: "Home" },
   { href: "/programs", label: "Programs" },
   { href: "/history", label: "History" },
-];
+  { href: "/settings", label: "Settings" },
+] as const;
+
+function navActive(pathname: string, href: string) {
+  if (href === "/home") return pathname === "/home";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -19,7 +24,7 @@ export function BottomNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center justify-center gap-1 text-[10px] ${pathname === item.href ? "text-neutral-50" : "text-neutral-500"}`}
+            className={`flex flex-col items-center justify-center gap-1 text-[10px] ${navActive(pathname, item.href) ? "text-neutral-50" : "text-neutral-500"}`}
           >
             {item.label}
           </Link>

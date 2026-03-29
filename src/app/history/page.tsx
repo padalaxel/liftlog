@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BottomNav } from "@/components/workout/BottomNav";
+import { AppShell } from "@/components/app/AppShell";
 
 type HistoryItem = {
   id: string;
@@ -30,24 +30,29 @@ export default function HistoryPage() {
   }, []);
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-md p-3 pb-20">
-      <h1 className="mb-3 text-xl font-semibold">History</h1>
-      {error ? <p className="mb-2 text-sm text-red-300">{error}</p> : null}
-      <div className="space-y-2">
-        {items.map((item) => (
-          <Link key={item.id} href={`/history/${item.id}`} className="block rounded-md border border-zinc-800 bg-zinc-900 p-3">
-            <p className="font-medium">{item.program_days?.name ?? "Workout"}</p>
-            <p className="text-xs text-zinc-400">{new Date(item.started_at).toLocaleString()}</p>
-            <p className="mt-1 text-xs text-zinc-300">
-              {item.ai_summary_note ?? "No coach summary yet."}
-            </p>
-          </Link>
-        ))}
-        {!error && items.length === 0 ? (
-          <p className="text-sm text-zinc-400">No workouts logged yet.</p>
-        ) : null}
-      </div>
-      <BottomNav />
-    </main>
+    <AppShell>
+      <main className="flex flex-1 flex-col p-3">
+        <h1 className="mb-3 text-xl font-semibold">History</h1>
+        {error ? <p className="mb-2 text-sm text-red-300">{error}</p> : null}
+        <div className="space-y-2">
+          {items.map((item) => (
+            <Link
+              key={item.id}
+              href={`/history/${item.id}`}
+              className="block rounded-lg border border-zinc-800 bg-zinc-900 p-3"
+            >
+              <p className="font-medium">{item.program_days?.name ?? "Workout"}</p>
+              <p className="text-xs text-zinc-400">{new Date(item.started_at).toLocaleString()}</p>
+              <p className="mt-1 text-xs text-zinc-300">
+                {item.ai_summary_note ?? "No coach summary yet."}
+              </p>
+            </Link>
+          ))}
+          {!error && items.length === 0 ? (
+            <p className="text-sm text-zinc-400">No workouts logged yet.</p>
+          ) : null}
+        </div>
+      </main>
+    </AppShell>
   );
 }
