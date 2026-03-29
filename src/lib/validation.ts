@@ -15,6 +15,10 @@ export const startWorkoutSchema = z.object({
   program_day_id: z.string().uuid(),
 });
 
+export const cancelWorkoutSchema = z.object({
+  workout_id: z.string().uuid(),
+});
+
 export const finishWorkoutSchema = z.object({
   workout_id: z.string().uuid(),
   difficulty: z.enum(["easy", "good", "hard", "failed"]),

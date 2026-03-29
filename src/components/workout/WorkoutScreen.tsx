@@ -42,6 +42,9 @@ export type WorkoutScreenProps = {
   onOpenExerciseNotes?: (exerciseId: string) => void;
   /** Shown directly under the title row (e.g. Start Workout) before meta + exercise list */
   startWorkoutSlot?: ReactNode;
+  /** Abandon in-progress session without saving (shown when `canFinish`). */
+  onCancelWorkout?: () => void;
+  cancelBusy?: boolean;
 };
 
 export function WorkoutScreen({
@@ -66,6 +69,8 @@ export function WorkoutScreen({
   onOpenExerciseHistory,
   onOpenExerciseNotes,
   startWorkoutSlot,
+  onCancelWorkout,
+  cancelBusy = false,
 }: WorkoutScreenProps) {
   return (
     <main className={todayLayout.screen}>
@@ -79,6 +84,18 @@ export function WorkoutScreen({
           onFinishWorkout={onFinishWorkout}
           onOpenWorkoutOptions={onOpenWorkoutOptions}
         />
+        {canFinish && onCancelWorkout ? (
+          <div className="flex w-full shrink-0 justify-center px-3 pb-1 pt-0.5">
+            <button
+              type="button"
+              disabled={cancelBusy || isFinishing}
+              onClick={onCancelWorkout}
+              className="text-sm font-medium text-red-400/95 underline decoration-red-400/50 underline-offset-2 disabled:opacity-50"
+            >
+              {cancelBusy ? "Canceling…" : "Cancel workout"}
+            </button>
+          </div>
+        ) : null}
         {startWorkoutSlot ? (
           <div className="w-full shrink-0 px-0 pt-0.5">{startWorkoutSlot}</div>
         ) : null}

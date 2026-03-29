@@ -159,6 +159,27 @@ function normalizeExercises(input: ExerciseState[]): ExerciseState[] {
   }));
 }
 
+function buildExerciseStatesFromProgramDay(programDay: ProgramDayData): ExerciseState[] {
+  return programDay.template_exercises
+    .slice()
+    .sort((a, b) => a.order_index - b.order_index)
+    .map((ex) => {
+      const sets = buildInitialSetsFromTemplate(ex);
+      return {
+        id: ex.id,
+        template_exercise_id: ex.id,
+        name: ex.exercise_name,
+        cue_text: ex.cue_text ?? "Control the eccentric",
+        progression_note: "Hold weight",
+        rest_seconds: ex.rest_seconds,
+        rep_min: ex.rep_min,
+        rep_max: ex.rep_max,
+        bodyweight: Boolean(ex.template_sets?.some((s) => s.is_bodyweight)),
+        sets,
+      };
+    });
+}
+
 function todayHref(dayId: string, isDemo: boolean) {
   const params = new URLSearchParams();
   params.set("dayId", dayId);
@@ -197,6 +218,7 @@ function TodayWorkoutContent() {
     otherName: string;
     isDemo: boolean;
   } | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
 
   useEffect(() => {
     const id = window.setInterval(() => setElapsed((v) => v + 1), 1000);
@@ -533,6 +555,52 @@ function TodayWorkoutContent() {
         isDemo: false,
       });
     }
+  }
+
+  async function cancelWorkout() {
+    if (!workoutId || !day) return;
+    if (
+      !window.confirm(
+        "Cancel this workout? Nothing will be saved to your log. This cannot be undone.",
+      )
+    ) {
+      return;
+    }
+    setFinishMessage(null);
+    setShowFinish(false);
+    setDebriefOpen(false);
+    setActiveRest(null);
+    setActiveRow(null);
+    setFocusTarget(null);
+
+    if (isDemoMode) {
+      clearActiveWorkoutSession();
+      window.localStorage.removeItem(`today-draft:${day.id}`);
+      setWorkoutId(null);
+      setExercises(normalizeExercises(buildExerciseStatesFromProgramDay(day)));
+      setFinishMessage("Workout canceled.");
+      return;
+    }
+
+    setCancelBusy(true);
+    const res = await fetch("/api/workouts/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workout_id: workoutId }),
+    });
+    setCancelBusy(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setFinishMessage(
+        typeof data?.error === "string" ? data.error : "Could not cancel workout. Try again.",
+      );
+      return;
+    }
+    clearActiveWorkoutSession();
+    window.localStorage.removeItem(`today-draft:${day.id}`);
+    setWorkoutId(null);
+    setExercises(normalizeExercises(buildExerciseStatesFromProgramDay(day)));
+    setFinishMessage("Workout canceled.");
   }
 
   async function runCoachAfterSave(savedId: string) {
@@ -889,6 +957,8 @@ function TodayWorkoutContent() {
           ) : null
         }
         onFinishWorkout={() => setShowFinish(true)}
+        onCancelWorkout={workoutId ? cancelWorkout : undefined}
+        cancelBusy={cancelBusy}
         onUpdateSet={applyUpdateSet}
         onCompleteSet={applyCompleteSet}
         onUsePrevious={applyUsePrevious}
