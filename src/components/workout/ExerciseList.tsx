@@ -1,5 +1,6 @@
 import { ExerciseCard } from "@/components/workout/ExerciseCard";
 import type {
+  ActiveRestTimer,
   ActiveRowTarget,
   CompleteSetInput,
   ExerciseCardData,
@@ -10,6 +11,7 @@ import type {
 
 export type ExerciseListProps = {
   exercises: ExerciseCardData[];
+  inlineRestTimer: ActiveRestTimer | null;
   onUpdateSet: (input: UpdateSetInput) => void;
   onCompleteSet: (input: CompleteSetInput) => void;
   onUsePrevious: (input: UsePreviousInput) => void;
@@ -24,6 +26,7 @@ export type ExerciseListProps = {
 
 export function ExerciseList({
   exercises,
+  inlineRestTimer,
   onUpdateSet,
   onCompleteSet,
   onUsePrevious,
@@ -41,6 +44,9 @@ export function ExerciseList({
         <ExerciseCard
           key={exercise.id}
           exercise={exercise}
+          inlineRestTimer={
+            inlineRestTimer?.exerciseId === exercise.id ? inlineRestTimer : null
+          }
           onUpdateSet={onUpdateSet}
           onCompleteSet={onCompleteSet}
           onUsePrevious={onUsePrevious}

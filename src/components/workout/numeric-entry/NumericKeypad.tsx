@@ -6,11 +6,10 @@ type Props = {
   onDigit: (d: string) => void;
   onBackspace: () => void;
   onNext: () => void;
-  onDismiss: () => void;
   onAdjust: (delta: number) => void;
 };
 
-export function NumericKeypad({ onDigit, onBackspace, onNext, onDismiss, onAdjust }: Props) {
+export function NumericKeypad({ onDigit, onBackspace, onNext, onAdjust }: Props) {
   const row3 = (keys: string[]) => (
     <div className="grid grid-cols-3 gap-3">
       {keys.map((k) => (
@@ -43,16 +42,7 @@ export function NumericKeypad({ onDigit, onBackspace, onNext, onDismiss, onAdjus
         </div>
       </div>
       <div className="flex w-[96px] shrink-0 flex-col gap-2">
-        <KeypadButton
-          variant="ghost"
-          className="min-h-[52px] text-xs font-medium"
-          onClick={onDismiss}
-          aria-label="Close keypad"
-        >
-          <span className="text-lg" aria-hidden>
-            ⌨
-          </span>
-        </KeypadButton>
+        <div className="min-h-[52px]" aria-hidden />
         <KeypadButton variant="primary" className="min-h-[56px] flex-1 text-base font-semibold" onClick={onNext}>
           Next
         </KeypadButton>

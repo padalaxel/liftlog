@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { ExerciseList } from "@/components/workout/ExerciseList";
-import { FloatingRestTimer } from "@/components/workout/FloatingRestTimer";
 import { WorkoutHeader } from "@/components/workout/WorkoutHeader";
 import { WorkoutMetaBar } from "@/components/workout/WorkoutMetaBar";
 import { todayLayout } from "@/components/workout/today-layout";
@@ -22,8 +21,9 @@ export type WorkoutScreenProps = {
   startedAt: string;
   elapsedSeconds: number;
   exercises: ExerciseCardData[];
+  /** Inline rest countdown under the completed set row (single active timer). */
+  inlineRestTimer: ActiveRestTimer | null;
   nextSessionFocus?: string | null;
-  activeRestTimer?: ActiveRestTimer | null;
   isFinishing?: boolean;
   /** When false, Finish is disabled until a workout session exists (see Today page). */
   canFinish?: boolean;
@@ -40,8 +40,6 @@ export type WorkoutScreenProps = {
   onActiveRowChange: (target: ActiveRowTarget) => void;
   onOpenExerciseHistory?: (exerciseId: string) => void;
   onOpenExerciseNotes?: (exerciseId: string) => void;
-  onSkipRestTimer: () => void;
-  onDismissRestTimer: () => void;
   /** Shown directly under the title row (e.g. Start Workout) before meta + exercise list */
   startWorkoutSlot?: ReactNode;
 };
@@ -50,8 +48,8 @@ export function WorkoutScreen({
   workoutName,
   elapsedSeconds,
   exercises,
+  inlineRestTimer,
   nextSessionFocus,
-  activeRestTimer = null,
   isFinishing = false,
   canFinish = true,
   onBack,
@@ -67,8 +65,6 @@ export function WorkoutScreen({
   onActiveRowChange,
   onOpenExerciseHistory,
   onOpenExerciseNotes,
-  onSkipRestTimer,
-  onDismissRestTimer,
   startWorkoutSlot,
 }: WorkoutScreenProps) {
   return (
@@ -93,6 +89,7 @@ export function WorkoutScreen({
         />
         <ExerciseList
           exercises={exercises}
+          inlineRestTimer={inlineRestTimer}
           onUpdateSet={onUpdateSet}
           onCompleteSet={onCompleteSet}
           onUsePrevious={onUsePrevious}
@@ -104,13 +101,17 @@ export function WorkoutScreen({
           onOpenExerciseHistory={onOpenExerciseHistory}
           onOpenExerciseNotes={onOpenExerciseNotes}
         />
+        <div className="mt-5 w-full shrink-0 pb-1">
+          <button
+            type="button"
+            className="flex h-14 w-full items-center justify-center rounded-2xl bg-neutral-100 text-base font-semibold text-neutral-950 shadow-sm active:bg-neutral-200/90 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isFinishing || !canFinish}
+            onClick={onFinishWorkout}
+          >
+            {isFinishing ? "Saving…" : "Finish Workout"}
+          </button>
+        </div>
       </div>
-      <FloatingRestTimer
-        key={activeRestTimer?.startedAt ?? "no-timer"}
-        timer={activeRestTimer}
-        onSkip={onSkipRestTimer}
-        onDismiss={onDismissRestTimer}
-      />
     </main>
   );
 }

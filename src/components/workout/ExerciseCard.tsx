@@ -6,6 +6,7 @@ import { ExerciseSubline } from "@/components/workout/ExerciseSubline";
 import { SetTable } from "@/components/workout/SetTable";
 import { todayLayout } from "@/components/workout/today-layout";
 import type {
+  ActiveRestTimer,
   ActiveRowTarget,
   CompleteSetInput,
   ExerciseCardData,
@@ -16,6 +17,7 @@ import type {
 
 export type ExerciseCardProps = {
   exercise: ExerciseCardData;
+  inlineRestTimer: ActiveRestTimer | null;
   onUpdateSet: (input: UpdateSetInput) => void;
   onCompleteSet: (input: CompleteSetInput) => void;
   onUsePrevious: (input: UsePreviousInput) => void;
@@ -30,6 +32,7 @@ export type ExerciseCardProps = {
 
 export function ExerciseCard({
   exercise,
+  inlineRestTimer,
   onUpdateSet,
   onCompleteSet,
   onUsePrevious,
@@ -59,6 +62,7 @@ export function ExerciseCard({
       <SetTable
         exerciseId={exercise.id}
         sets={exercise.sets}
+        inlineRestTimer={inlineRestTimer}
         onUpdateSet={onUpdateSet}
         onCompleteSet={onCompleteSet}
         onUsePrevious={onUsePrevious}

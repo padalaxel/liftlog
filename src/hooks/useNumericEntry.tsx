@@ -147,6 +147,23 @@ export function NumericEntryProvider({
     [onLiveChange],
   );
 
+  /** Commit buffer for a specific active context (used when switching fields while sheet stays open). */
+  const commitBufferForContext = useCallback(
+    (ctx: NumericEntryActive) => {
+      if (!ctx || ctx.kind === "rpe") return;
+      const field = ctx.kind === "reps" ? "actualReps" : "actualWeight";
+      const raw = bufferRef.current.trim();
+      if (raw === "") {
+        onCommit(ctx.exerciseId, ctx.setId, field, null);
+        return;
+      }
+      const n = parseInt(raw, 10);
+      if (!Number.isFinite(n)) return;
+      onCommit(ctx.exerciseId, ctx.setId, field, n);
+    },
+    [onCommit],
+  );
+
   const openSheet = useCallback(
     (
       exerciseId: string,
@@ -156,6 +173,23 @@ export function NumericEntryProvider({
       syncParentFocus = false,
     ) => {
       if (k === "rpe") return;
+      const prev = activeRef.current;
+      if (
+        prev &&
+        prev.kind !== "rpe" &&
+        prev.exerciseId === exerciseId &&
+        prev.setId === setId &&
+        prev.kind === k
+      ) {
+        return;
+      }
+      if (
+        prev &&
+        prev.kind !== "rpe" &&
+        (prev.exerciseId !== exerciseId || prev.setId !== setId || prev.kind !== k)
+      ) {
+        commitBufferForContext(prev);
+      }
       if (syncParentFocus) {
         const field = k === "reps" ? "actualReps" : "actualWeight";
         syncFocus(exerciseId, setId, field);
@@ -169,12 +203,9 @@ export function NumericEntryProvider({
       bufferRef.current = buf;
       setBuffer(buf);
       setOpen(true);
-      emitLiveChange(
-        { exerciseId, setId, kind: k },
-        buf,
-      );
+      emitLiveChange({ exerciseId, setId, kind: k }, buf);
     },
-    [syncFocus, emitLiveChange],
+    [syncFocus, emitLiveChange, commitBufferForContext],
   );
 
   const openReps = useCallback(
@@ -311,7 +342,6 @@ export function NumericEntryProvider({
     if (!a || a.kind === "rpe") return;
 
     if (a.kind === "weight") {
-      commitBufferToWorkout();
       const ex = exercisesRef.current;
       const init = getSetValue(ex, a.exerciseId, a.setId, "reps");
       openSheet(a.exerciseId, a.setId, "reps", init, true);
@@ -323,7 +353,7 @@ export function NumericEntryProvider({
     commitRepsForAdvance();
     closeOnly();
     onRepsNextRef.current?.({ exerciseId: exId, setId: sid });
-  }, [closeOnly, commitBufferToWorkout, commitRepsForAdvance, openSheet]);
+  }, [closeOnly, commitRepsForAdvance, openSheet]);
 
   const isCellActive = useCallback(
     (exerciseId: string, setId: string, cell: "reps" | "weight") => {

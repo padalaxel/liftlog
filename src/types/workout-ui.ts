@@ -36,6 +36,8 @@ export type ExerciseCardData = {
 
 export type ActiveRestTimer = {
   exerciseId: string;
+  /** Set row that completed and started this rest period (inline timer renders under this row). */
+  setId: string;
   exerciseName: string;
   durationSeconds: number;
   remainingSeconds: number;

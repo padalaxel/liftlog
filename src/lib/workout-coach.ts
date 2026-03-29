@@ -106,16 +106,35 @@ export async function runCoachUpdateForWorkout(
     recovery: resultPayload.recovery,
   };
 
-  const { error: workoutWriteError } = await supabase
-    .from("workouts")
-    .update({
-      ai_summary_note: resultPayload.session_summary,
-      ai_detailed_feedback: legacyDetailedFromStructured(structuredStore),
-      ai_next_session_focus: nextFocusLinesFromArray(resultPayload.next_session_focus),
-      ai_recovery_observation: resultPayload.recovery,
-      ai_coach_structured: structuredStore,
-    })
-    .eq("id", workoutId);
+  const baseWorkoutCoachColumns = {
+    ai_summary_note: resultPayload.session_summary,
+    ai_detailed_feedback: legacyDetailedFromStructured(structuredStore),
+    ai_next_session_focus: nextFocusLinesFromArray(resultPayload.next_session_focus),
+    ai_recovery_observation: resultPayload.recovery,
+  };
+
+  let workoutWriteError = (
+    await supabase
+      .from("workouts")
+      .update({
+        ...baseWorkoutCoachColumns,
+        ai_coach_structured: structuredStore,
+      })
+      .eq("id", workoutId)
+  ).error;
+
+  if (
+    workoutWriteError &&
+    /ai_coach_structured|schema cache|column.*workouts/i.test(workoutWriteError.message)
+  ) {
+    console.warn(
+      "[workout-coach] Retrying without ai_coach_structured — run migration 20260328_ai_coach_structured.sql on Supabase.",
+    );
+    workoutWriteError = (
+      await supabase.from("workouts").update(baseWorkoutCoachColumns).eq("id", workoutId)
+    ).error;
+  }
+
   if (workoutWriteError) {
     return { ok: false as const, status: 500, message: workoutWriteError.message };
   }

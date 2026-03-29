@@ -307,12 +307,13 @@ export default function TodayPage() {
     [exercises],
   );
 
-  async function startRestTimer(label: string, seconds: number) {
-    const exercise = exercises.find((e) => e.name === label);
+  async function startRestTimer(exerciseName: string, seconds: number, completedSetId: string) {
+    const exercise = exercises.find((e) => e.name === exerciseName);
     restTimerIdRef.current += 1;
     setActiveRest({
       exerciseId: exercise?.id ?? "unknown",
-      exerciseName: label,
+      setId: completedSetId,
+      exerciseName,
       durationSeconds: seconds,
       remainingSeconds: seconds,
       startedAt: new Date(Date.now() + restTimerIdRef.current).toISOString(),
@@ -323,6 +324,18 @@ export default function TodayPage() {
       body: JSON.stringify({ rest_seconds: seconds }),
     }).catch(() => undefined);
   }
+
+  useEffect(() => {
+    if (!activeRest) return;
+    const id = window.setInterval(() => {
+      setActiveRest((prev) => {
+        if (!prev) return null;
+        const next = prev.remainingSeconds - 1;
+        return next <= 0 ? null : { ...prev, remainingSeconds: next };
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [activeRest?.startedAt]);
 
   async function startWorkout() {
     const isDemoMode =
@@ -498,7 +511,7 @@ export default function TodayPage() {
     setId,
     completed,
     skipAutoFocus,
-  }: CompleteSetInput & { skipAutoFocus?: boolean }) {
+  }: CompleteSetInput) {
     if (!setId) return;
     const exercise = exercises.find((e) => e.id === exerciseId);
     if (!exercise) return;
@@ -535,7 +548,7 @@ export default function TodayPage() {
       const completedSet = exercise.sets.find((s) => s.id === setId);
       const restSec = completedSet?.rest_seconds ?? exercise.rest_seconds;
       if (restSec > 0) {
-        void startRestTimer(exercise.name, restSec);
+        void startRestTimer(exercise.name, restSec, setId);
       }
       if (nextIncomplete && !skipAutoFocus) {
         requestSetFocus(exerciseId, nextIncomplete.id, "actualReps");
@@ -564,7 +577,12 @@ export default function TodayPage() {
       return;
     }
 
-    applyCompleteSet({ exerciseId, setId, completed: true, skipAutoFocus: true });
+    applyCompleteSet({
+      exerciseId,
+      setId,
+      completed: true,
+      skipAutoFocus: true,
+    });
     if (nextIncomplete) {
       requestAnimationFrame(() => openKeypadForNextSet(exerciseId, nextIncomplete));
     }
@@ -659,8 +677,8 @@ export default function TodayPage() {
         startedAt=""
         elapsedSeconds={elapsed}
         exercises={uiExercises}
+        inlineRestTimer={activeRest}
         nextSessionFocus={nextSessionFocusBanner}
-        activeRestTimer={activeRest}
         isFinishing={finishing}
         canFinish={Boolean(workoutId)}
         startWorkoutSlot={
@@ -684,8 +702,6 @@ export default function TodayPage() {
         activeRow={activeRow}
         focusTarget={focusTarget}
         onActiveRowChange={setActiveRow}
-        onSkipRestTimer={() => setActiveRest(null)}
-        onDismissRestTimer={() => setActiveRest(null)}
       />
       <NumericEntrySheet />
       <div className="mx-auto w-full max-w-[430px] space-y-1.5 px-3 pb-28">

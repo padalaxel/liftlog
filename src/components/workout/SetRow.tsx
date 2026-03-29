@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useNumericEntry } from "@/hooks/useNumericEntry";
+import { useNumericFieldTapIntent } from "@/hooks/useNumericFieldTapIntent";
 import type {
   ActiveRowTarget,
   CompleteSetInput,
@@ -50,10 +51,28 @@ export function SetRow({
   const repsActive = isCellActive(exerciseId, set.id, "reps");
   const weightActive = isCellActive(exerciseId, set.id, "weight");
 
+  const openWeightFromTap = useCallback(() => {
+    onActiveRowChange({ exerciseId, setId: set.id });
+    openWeight(exerciseId, set.id, set.actualWeight);
+  }, [exerciseId, set.id, set.actualWeight, onActiveRowChange, openWeight]);
+
+  const openRepsFromTap = useCallback(() => {
+    onActiveRowChange({ exerciseId, setId: set.id });
+    openReps(exerciseId, set.id, set.actualReps);
+  }, [exerciseId, set.id, set.actualReps, onActiveRowChange, openReps]);
+
+  const weightTap = useNumericFieldTapIntent(openWeightFromTap);
+  const repsTap = useNumericFieldTapIntent(openRepsFromTap);
+
+  const completedRowBg = set.completed ? "bg-neutral-800/70" : "";
+  const activeIncompleteBg = !set.completed && isActive ? "bg-neutral-800/12" : "";
+  const valueTextClass =
+    set.completed && !weightActive && !repsActive ? "text-neutral-300" : "text-neutral-100";
+
   return (
     <div
       ref={rowRef}
-      className={`grid min-h-[52px] items-center gap-1 border-t border-neutral-800/60 px-2 text-sm tabular-nums transition-colors duration-75 first:border-t-0 scroll-mb-28 ${gridTemplate} ${set.completed ? "bg-neutral-100/10" : ""} ${isActive ? "bg-neutral-800/12" : ""}`}
+      className={`grid min-h-[52px] items-center gap-1 border-t border-neutral-800/60 px-2 text-sm tabular-nums transition-colors duration-75 first:border-t-0 scroll-mb-28 ${gridTemplate} ${completedRowBg} ${activeIncompleteBg}`}
     >
       <span className="pointer-events-none text-center text-[12px] text-neutral-500">{set.setNumber}</span>
       {set.previousPerformance ? (
@@ -88,12 +107,11 @@ export function SetRow({
           autoComplete="off"
           value={set.actualWeight ?? ""}
           placeholder="lb"
-          className={`h-9 w-full max-w-[88px] cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none transition-shadow duration-150 ${weightActive ? activeFieldRing : "hover:bg-neutral-800/20"}`}
-          onPointerDown={(e) => {
+          className={`h-9 w-full max-w-[88px] cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-right text-base outline-none transition-shadow duration-150 ${valueTextClass} ${weightActive ? activeFieldRing : "hover:bg-neutral-800/20"}`}
+          {...weightTap}
+          onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onActiveRowChange({ exerciseId, setId: set.id });
-            openWeight(exerciseId, set.id, set.actualWeight);
           }}
           aria-label="Weight in pounds"
         />
@@ -107,12 +125,11 @@ export function SetRow({
           autoComplete="off"
           value={set.actualReps ?? ""}
           placeholder="reps"
-          className={`h-9 w-full max-w-[60px] cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-right text-base text-neutral-100 outline-none transition-shadow duration-150 ${repsActive ? activeFieldRing : "hover:bg-neutral-800/20"}`}
-          onPointerDown={(e) => {
+          className={`h-9 w-full max-w-[60px] cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-right text-base outline-none transition-shadow duration-150 ${valueTextClass} ${repsActive ? activeFieldRing : "hover:bg-neutral-800/20"}`}
+          {...repsTap}
+          onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onActiveRowChange({ exerciseId, setId: set.id });
-            openReps(exerciseId, set.id, set.actualReps);
           }}
           aria-label="Reps"
         />
