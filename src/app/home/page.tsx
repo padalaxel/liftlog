@@ -99,6 +99,14 @@ export default function HomeDashboardPage() {
           </p>
         </div>
 
+        {!loading && !demoMode && days.length === 1 ? (
+          <div className="rounded-lg border border-amber-800/50 bg-amber-950/35 px-3 py-2.5 text-xs leading-relaxed text-amber-200/90">
+            <span className="font-medium text-amber-50">Program note: </span>
+            Only one day is linked to your account (see Programs for how to load the full four-day template in
+            Supabase).
+          </div>
+        ) : null}
+
         {loading ? <p className="text-sm text-zinc-500">Loading…</p> : null}
 
         {!loading && suggested ? (

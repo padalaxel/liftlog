@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { sortActiveProgramsForClient } from "@/lib/programs-api";
 
 export async function GET() {
   const supabase = await createSupabaseServerClient();
@@ -10,7 +11,9 @@ export async function GET() {
     .select("*, program_days(*, template_exercises(*, template_sets(*)))")
     .eq("user_id", userData.user.id)
     .eq("is_active", true)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("order_index", { referencedTable: "program_days", ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ programs: data });
+  const programs = sortActiveProgramsForClient(data);
+  return NextResponse.json({ programs });
 }
