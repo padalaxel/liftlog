@@ -46,9 +46,11 @@ function ExerciseAdjustmentBlock({ ex }: { ex: ExerciseAdjustmentItem }) {
           {ex.next_session_target}
         </p>
       </div>
-      <p className="mt-2.5 text-[13px] leading-snug text-zinc-500">
-        <span className="text-zinc-600">Cue</span> <span className="text-zinc-400">{ex.focus}</span>
-      </p>
+      {ex.focus?.trim() ? (
+        <p className="mt-2.5 text-[13px] leading-snug text-zinc-500">
+          <span className="text-zinc-600">Cue</span> <span className="text-zinc-400">{ex.focus}</span>
+        </p>
+      ) : null}
     </div>
   );
 }

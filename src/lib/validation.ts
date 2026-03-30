@@ -33,7 +33,8 @@ export const exerciseAdjustmentSchema = z.object({
   decision: z.string().min(1).max(200),
   why: z.string().min(10).max(700),
   next_session_target: z.string().min(1).max(240),
-  focus: z.string().min(5).max(400),
+  /** Optional cue; empty string when no useful cue. */
+  focus: z.string().max(400).optional().default(""),
 });
 
 export const aiUpdateSchema = z.object({

@@ -64,6 +64,7 @@ join (
     ('UPPER A', 3, 'Incline Bench Press (Dumbbell)', 3, 8, 10, 55::numeric, 5::numeric, 90, null, 'double_progression', true),
     ('UPPER A', 4, 'Lateral Raise (Dumbbell)', 3, 12, 15, 20::numeric, 2.5::numeric, 60, null, 'hold_then_progress', false),
     ('UPPER A', 5, 'Triceps Pushdown (Cable)', 3, 10, 12, 45::numeric, 5::numeric, 75, null, 'hold_then_progress', false),
+    ('UPPER A', 6, 'Chest Fly (Dumbbell)', 3, 12, 15, 25::numeric, 2.5::numeric, 60, null, 'hold_then_progress', false),
 
     ('LOWER A (Knee Friendly)', 1, 'Leg Press', 4, 10, 12, 270::numeric, 10::numeric, 70, null, 'double_progression', true),
     ('LOWER A (Knee Friendly)', 2, 'Glute Bridge', 3, 8, 12, 95::numeric, 5::numeric, 55, '2-3 second squeeze at top', 'double_progression', true),

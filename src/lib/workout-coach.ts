@@ -1,4 +1,8 @@
 import { generateNextSessionUpdate } from "@/lib/ai/update-next-session";
+import {
+  buildTemplateExercisesFromDecisions,
+  mergeExerciseAdjustmentsWithDecisions,
+} from "@/lib/ai/exerciseCoachDecisions";
 import { buildFallbackProgression } from "@/lib/progression-fallback";
 import type { AIUpdatePayload } from "@/lib/validation";
 import { legacyDetailedFromStructured, nextFocusLinesFromArray } from "@/types/coach";
@@ -38,8 +42,9 @@ export async function runCoachUpdateForWorkout(
   }
 
   let aiResult: Awaited<ReturnType<typeof generateNextSessionUpdate>>;
+  let coachContext: Awaited<ReturnType<typeof buildCoachContext>>;
   try {
-    const coachContext = await buildCoachContext({
+    coachContext = await buildCoachContext({
       userId,
       workoutId,
       includeConversation: false,
@@ -69,7 +74,19 @@ export async function runCoachUpdateForWorkout(
       (typeof aiResult.model === "string" && aiResult.model.length > 0
         ? aiResult.model
         : null) ?? process.env.OPENAI_MODEL ?? "openai-responses";
-    resultPayload = aiResult.data;
+    const mergedAdjustments = mergeExerciseAdjustmentsWithDecisions(
+      aiResult.data.exercise_adjustments,
+      coachContext.exercise_decisions,
+      templateContext ?? [],
+    );
+    resultPayload = {
+      ...aiResult.data,
+      exercise_adjustments: mergedAdjustments,
+      exercises: buildTemplateExercisesFromDecisions(
+        templateContext ?? [],
+        coachContext.exercise_decisions,
+      ),
+    };
   }
 
   const byName = new Map(

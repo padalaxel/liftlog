@@ -6,14 +6,19 @@ export type { CoachStructuredPayload };
 /** Build legacy detailed_feedback text for DB columns / old clients */
 export function legacyDetailedFromStructured(s: CoachStructuredPayload): string {
   return s.exercise_adjustments
-    .map(
-      (ex) =>
+    .map((ex) => {
+      const cue =
+        ex.focus?.trim() && ex.focus.trim().length > 0
+          ? `\nFocus: ${ex.focus}`
+          : "";
+      return (
         `${ex.exercise_name}:\n` +
         `Decision: ${ex.decision}\n` +
         `Why: ${ex.why}\n` +
-        `Next session target: ${ex.next_session_target}\n` +
-        `Focus: ${ex.focus}`,
-    )
+        `Next session target: ${ex.next_session_target}` +
+        cue
+      );
+    })
     .join("\n\n");
 }
 

@@ -1,4 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeCoachExerciseName } from "@/lib/ai/coachExerciseName";
+import { computeExerciseDecisionsForCoach } from "@/lib/ai/exerciseCoachDecisions";
+import type { CoachExerciseDecision } from "@/lib/ai/exerciseCoachDecisions";
 import type {
   ExerciseHistoryEntry,
   ExerciseHistoryForCoach,
@@ -35,10 +38,6 @@ function readGoal(value: unknown) {
     return (value as { goal?: string | null }).goal ?? null;
   }
   return null;
-}
-
-export function normalizeCoachExerciseName(name: string): string {
-  return name.trim().toLowerCase();
 }
 
 type TemplateExerciseEmbed = {
@@ -228,6 +227,8 @@ export interface CoachContext {
       rest_seconds: number;
     }>;
   };
+  /** App-computed progression; the model must explain these, not replace them. */
+  exercise_decisions: CoachExerciseDecision[];
   conversation_context: ConversationMessage[];
 }
 
@@ -305,6 +306,7 @@ export async function buildCoachContext({
   let program_workout_history: ProgramWorkoutHistoryEntry[] = [];
 
   if (includeHistory) {
+    /** Prior sessions: any completed workout (including imported seeds), excluding the current workout id. */
     const { data: historyRows, error: historyError } = await supabase
       .from("workouts")
       .select(
@@ -371,6 +373,29 @@ export async function buildCoachContext({
     });
   }
 
+  const program_context: CoachContext["program_context"] = {
+    program_name: readName(programDay.programs, "Active program"),
+    goal: readGoal(programDay.programs),
+    program_day: programDay.name,
+    exercises: (templates ?? []).slice(0, MAX_EXERCISES_PER_WORKOUT).map((t) => ({
+      exercise_name: t.exercise_name,
+      target_sets: t.target_sets,
+      rep_min: t.rep_min,
+      rep_max: t.rep_max,
+      target_weight: Number(t.target_weight),
+      progression_rule: t.progression_rule,
+      increment_lbs: Number(t.increment_lbs),
+      rest_seconds: t.rest_seconds,
+    })),
+  };
+
+  const exercise_decisions = computeExerciseDecisionsForCoach({
+    workoutExercises: workout_context.exercises,
+    programExercises: program_context.exercises,
+    exerciseHistory: exercise_history,
+    sessionDifficulty: workout.difficulty,
+  });
+
   let conversation_context: ConversationMessage[] = [];
   if (includeConversation) {
     const { data: conversationRows, error: conversationError } = await supabase
@@ -405,31 +430,14 @@ export async function buildCoachContext({
         "base conclusions on data",
       ],
       history_usage_rules: [
-        "Base load/rep progression decisions primarily on the last 3 prior sessions of the SAME exercise name in exercise_history (ignore unrelated lifts).",
-        "Use up to 6 prior sessions per exercise to confirm trends vs one-off bad days—do not overreact to a single poor session.",
-        "Use program_workout_history (recent completed workouts across all days) for systemic fatigue, recovery, and session-to-session energy—not for comparing unrelated exercise loads.",
-        "If an exercise has fewer than 3 prior sessions, use all available sessions and state uncertainty briefly.",
-        "Cite concrete numbers from exercise_history and workout_context when explaining decisions.",
+        "Explain deterministic_exercise_decisions only; use exercise_history for same-name color and program_workout_history for session fatigue—not alternate load logic.",
       ],
     },
     workout_context,
     exercise_history,
     program_workout_history,
-    program_context: {
-      program_name: readName(programDay.programs, "Active program"),
-      goal: readGoal(programDay.programs),
-      program_day: programDay.name,
-      exercises: (templates ?? []).slice(0, MAX_EXERCISES_PER_WORKOUT).map((t) => ({
-        exercise_name: t.exercise_name,
-        target_sets: t.target_sets,
-        rep_min: t.rep_min,
-        rep_max: t.rep_max,
-        target_weight: Number(t.target_weight),
-        progression_rule: t.progression_rule,
-        increment_lbs: Number(t.increment_lbs),
-        rest_seconds: t.rest_seconds,
-      })),
-    },
+    program_context,
+    exercise_decisions,
     conversation_context,
   };
 }

@@ -35,6 +35,10 @@ function assembleMessages(reduced: CoachContext, userMessage?: string): Message[
     { role: "system", content: systemCoachBlock(reduced) },
     { role: "system", content: `workout_context=${toJson(reduced.workout_context)}` },
     { role: "system", content: `program_context=${toJson(reduced.program_context)}` },
+    {
+      role: "system",
+      content: `deterministic_exercise_decisions=${toJson(reduced.exercise_decisions)}`,
+    },
     { role: "system", content: `exercise_history=${toJson(reduced.exercise_history)}` },
     {
       role: "system",
